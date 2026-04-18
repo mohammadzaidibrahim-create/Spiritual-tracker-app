@@ -925,7 +925,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="section-icon">📿</div>
         <div class="section-title-wrap">
           <div class="section-title">Dhikr, Azkar & Istighfar</div>
-          <div class="section-subtitle">+1 pt per 100 counts per item — unlimited</div>
+          <div class="section-subtitle">+0.5 pts per 50 counts per item — unlimited</div>
         </div>
         <div class="section-pts-badge" id="dhikr-pts-badge" style="background:rgba(179,157,219,.1);border:1px solid rgba(179,157,219,.3);color:var(--purple)">0 pts</div>
       </div>
@@ -1411,11 +1411,11 @@ function calcMusicScore(){
 }
 
 function calcDhikrScore(){
-  // +1 per 100 counts per item
+  // +0.5 pt per 50 counts per item (count / 100, no floor — allows decimals)
   let s = 0;
   dhikrItems.forEach(item => {
     const cnt = parseInt(item.count) || 0;
-    s += Math.floor(cnt / 100);
+    s += cnt / 100;
   });
   return s;
 }
@@ -1643,7 +1643,7 @@ function _origSaveDay(){
   const dhikrData = dhikrItems.map(item=>({
     name: item.name,
     count: item.count,
-    pts: Math.floor((item.count||0)/100),
+    pts: (item.count||0) / 100,
   }));
 
   // Build structured payload (easy to push to Firebase)
@@ -2390,9 +2390,9 @@ function updateDhikrCount(id, val){
     // Update pts display for that item
     const ptsEl = document.getElementById('dhikr-ipts-'+id);
     if(ptsEl){
-      const pts = Math.floor(item.count/100);
-      ptsEl.textContent = '+'+pts+' pt'+(pts!==1?'s':'');
-      ptsEl.style.color = pts>0?'var(--purple)':'var(--muted)';
+      const pts = item.count / 100;
+      ptsEl.textContent = '+' + (pts % 1 === 0 ? pts : pts.toFixed(1)) + ' pt' + (pts !== 1 ? 's' : '');
+      ptsEl.style.color = pts > 0 ? 'var(--purple)' : 'var(--muted)';
     }
     updateScore();
   }
@@ -2406,17 +2406,18 @@ function renderDhikrItems(){
     return;
   }
   c.innerHTML = dhikrItems.map(item=>{
-    const pts = Math.floor((item.count||0)/100);
+    const pts = (item.count||0) / 100;
+    const ptsDisplay = pts % 1 === 0 ? pts : pts.toFixed(1);
     return `<div class="dhikr-item-row">
       <div class="dhikr-item-top">
         <div class="dhikr-item-name" title="${item.name.replace(/"/g,'&quot;')}">${item.name}</div>
         <span style="font-size:10px;color:var(--muted);flex-shrink:0;">Count:</span>
         <input class="count-input" type="number" min="0" value="${item.count||''}" placeholder="0"
           oninput="updateDhikrCount(${item.id},this.value)" style="width:62px;flex-shrink:0;">
-        <div class="dhikr-item-pts" id="dhikr-ipts-${item.id}" style="color:${pts>0?'var(--purple)':'var(--muted)'}">+${pts} pt${pts!==1?'s':''}</div>
+        <div class="dhikr-item-pts" id="dhikr-ipts-${item.id}" style="color:${pts>0?'var(--purple)':'var(--muted)'}">+${ptsDisplay} pt${pts!==1?'s':''}</div>
         <button class="dhikr-item-remove" onclick="removeDhikrItem(${item.id})" title="Remove">×</button>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:3px;">+1 pt per 100 counts — current: ${item.count||0} counts</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;">+0.5 pt per 50 counts — current: ${item.count||0} counts</div>
     </div>`;
   }).join('');
 }
