@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spiritual & Habit Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Supabase JS — browser-safe publishable key only; RLS protects data -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Chart.js via CDN (Feature 6) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- html2pdf.js for Diary PDF export -->
@@ -12,10 +14,10 @@
 <style>
 :root{
   --bg:#0a0c10;--surface:#111318;--card:#161a22;--border:#1f2535;
-  --gold:#f5c842;--amber:#ffb347;--green:#3ddc84;--blue:#4fc3f7;
+  --gold:#f5c842;--amber:#f0b94a;--green:#3ddc84;--blue:#4fc3f7;
   --purple:#b39ddb;--text:#e8eaf0;--muted:#6b7280;--combo:#ff7043;--extra:#a8edca;
-  --teal:#26c6da;--rose:#f48fb1;--indigo:#7986cb;--music:#e879f9;
-  --sisters:#f48fb1;--hayd:#b39ddb;
+  --teal:#4fc3f7;--rose:#b39ddb;--indigo:#4fc3f7;--music:#b39ddb;
+  --sisters:#b39ddb;--hayd:#b39ddb;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px 14px 80px;
@@ -35,6 +37,38 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 #date-display{font-size:13px;color:var(--muted);font-weight:500;}
 .reset-btn{background:none;border:1px solid var(--border);color:var(--muted);font-family:'Outfit',sans-serif;font-size:11px;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .2s;}
 .reset-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+
+/* ═══ SUPABASE ACCOUNT / CLOUD SYNC ═══ */
+.account-panel{background:linear-gradient(135deg,rgba(79,195,247,.055),rgba(245,200,66,.035));border:1px solid rgba(79,195,247,.22);border-radius:15px;padding:14px 15px;margin-bottom:12px;}
+.account-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.account-title{font-size:13px;font-weight:800;color:var(--text);}
+.account-sub{font-size:10.5px;line-height:1.45;color:var(--muted);margin-top:2px;}
+.account-status{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:9px;font-size:11px;}
+.account-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.account-dot.online{background:var(--green);box-shadow:0 0 7px rgba(61,220,132,.5);}
+.account-dot.syncing{background:var(--gold);animation:as-pulse .7s ease infinite;}
+.account-dot.error{background:#ff6b6b;}
+.account-email{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-weight:600;}
+.account-actions{display:flex;gap:8px;}
+.account-btn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;}
+.account-btn:hover{border-color:var(--gold);color:var(--gold);}
+.account-btn.primary{border-color:rgba(79,195,247,.45);color:var(--blue);background:rgba(79,195,247,.06);}
+.account-btn.danger{color:#ff8b8b;border-color:rgba(255,107,107,.3);}
+.account-sync-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:9px;}
+.account-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:9800;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s;}
+.account-modal-overlay.open{opacity:1;pointer-events:all;}
+.account-modal{width:100%;max-width:430px;background:var(--card);border:1px solid rgba(245,200,66,.25);border-radius:20px;padding:22px 20px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.account-modal-title{font-family:'Cinzel Decorative',serif;font-size:16px;color:var(--gold);text-align:center;}
+.account-modal-sub{font-size:11px;color:var(--muted);text-align:center;line-height:1.6;margin:7px 8px 17px;}
+.account-field{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Outfit',sans-serif;font-size:12px;padding:10px 11px;outline:none;margin-bottom:8px;}
+.account-field:focus{border-color:var(--gold);}
+.account-modal-submit{width:100%;padding:11px;border:0;border-radius:11px;background:linear-gradient(135deg,var(--gold),var(--amber));color:#000;font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;cursor:pointer;margin-top:4px;}
+.account-modal-close{position:absolute;right:15px;top:12px;background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;}
+.account-modal-status{font-size:11px;line-height:1.5;text-align:center;min-height:17px;margin-top:9px;color:var(--muted);}
+.account-modal-status.success{color:var(--green);}
+.account-modal-status.error{color:#ff8b8b;}
+.account-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--border);margin-top:10px;}
 
 /* ═══ SISTERS / HAYD TOGGLE PANEL ═══ */
 .mode-panel{background:var(--card);border:1px solid var(--border);border-radius:15px;padding:12px 15px;margin-bottom:14px;animation:fadeDown .6s .05s ease both;}
@@ -84,6 +118,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
 /* SECTION CARD */
 .section-card{background:var(--card);border:1px solid var(--border);border-radius:15px;padding:14px 15px;margin-bottom:12px;animation:fadeUp .5s ease both;}
+.section-card{box-shadow:0 2px 10px rgba(0,0,0,.12);}
+.section-card-header{position:relative;}
 .section-card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
 .section-icon{font-size:22px;width:36px;text-align:center;}
 .section-title-wrap{flex:1;}
@@ -95,7 +131,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .salah-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
 .salah-row:last-child{border-bottom:none;}
 .salah-name{font-size:13px;font-weight:600;color:var(--text);width:72px;flex-shrink:0;}
-.salah-select{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:11px;padding:6px 8px;outline:none;cursor:pointer;transition:border-color .2s;-webkit-appearance:none;appearance:none;}
+.salah-select{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:11px;padding:6px 8px;outline:none;cursor:pointer;transition:border-color .2s;-webkit-appearance:none;appearance:none;}
 .salah-select:focus{border-color:var(--gold);}
 .salah-select option{background:var(--card);}
 .salah-pts-chip{font-size:11px;font-weight:700;width:34px;text-align:right;transition:color .3s;flex-shrink:0;}
@@ -270,6 +306,102 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 @keyframes pulse-dot{0%,100%{transform:scale(1);}50%{transform:scale(1.25);}}
 .header-top-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:4px;position:relative;}
 
+/* PERSONALIZED RECOMMENDATION MODAL */
+.reco-overlay{position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:9600;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s;}
+.reco-overlay.open{opacity:1;pointer-events:all;}
+.reco-modal{background:var(--card);border:1px solid rgba(245,200,66,.35);border-radius:20px;width:100%;max-width:500px;max-height:86vh;overflow-y:auto;padding:24px 20px 22px;position:relative;box-shadow:0 18px 60px rgba(0,0,0,.45);}
+.reco-kicker{text-align:center;color:var(--gold);font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
+.reco-title{font-family:'Cinzel Decorative',serif;font-size:17px;color:var(--gold);text-align:center;margin-bottom:5px;}
+.reco-subtitle{font-size:12px;line-height:1.5;color:var(--muted);text-align:center;margin-bottom:18px;}
+.reco-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 14px;margin-bottom:9px;}
+.reco-card.priority{border-color:rgba(245,200,66,.35);background:rgba(245,200,66,.045);}
+.reco-card-head{display:flex;align-items:center;gap:9px;margin-bottom:5px;}
+.reco-icon{font-size:20px;flex-shrink:0;}
+.reco-card-title{font-size:13px;font-weight:800;color:var(--text);}
+.reco-card-text{font-size:12px;line-height:1.6;color:var(--muted);}
+.reco-action{margin-top:7px;color:var(--gold);font-size:11px;font-weight:700;}
+.reco-close{width:100%;margin-top:9px;padding:11px;border-radius:11px;border:1px solid rgba(245,200,66,.35);background:rgba(245,200,66,.1);color:var(--gold);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.reco-close:hover{background:rgba(245,200,66,.16);}
+.recommendation-trigger{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:10px 14px;margin:0 0 13px;border:1px solid rgba(245,200,66,.3);border-radius:11px;background:rgba(245,200,66,.06);color:var(--gold);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.recommendation-trigger:hover{background:rgba(245,200,66,.11);}
+.analytics-insight{background:linear-gradient(135deg,rgba(245,200,66,.07),rgba(79,195,247,.045));border:1px solid rgba(245,200,66,.2);border-radius:14px;padding:14px;margin-bottom:12px;}
+.analytics-insight-title{font-size:12px;font-weight:800;color:var(--gold);margin-bottom:8px;}
+.analytics-insight-text{font-size:12px;line-height:1.65;color:var(--text);}
+.analytics-insight-list{margin:7px 0 0;padding-left:18px;color:var(--muted);font-size:11px;line-height:1.65;}
+.analytics-insight-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;}
+.analytics-insight-badge{font-size:9px;font-weight:800;color:var(--gold);background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.2);border-radius:20px;padding:4px 7px;white-space:nowrap;}
+.analytics-insight-lead{font-size:12px;line-height:1.65;color:var(--text);font-weight:600;}
+.analytics-insight-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px;}
+.insight-mini{background:rgba(0,0,0,.14);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:2px;min-width:0;}
+.insight-mini span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;}
+.insight-mini strong{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.insight-mini small{font-size:9px;color:var(--muted);line-height:1.35;}
+.chart-subline{font-size:10px;line-height:1.5;color:var(--muted);margin-top:-6px;margin-bottom:11px;}
+.breakdown-visual{display:grid;grid-template-columns:minmax(145px,.75fr) minmax(0,1.25fr);gap:14px;align-items:center;}
+.donut-wrap{position:relative;min-height:175px;display:flex;align-items:center;justify-content:center;}
+.donut-wrap canvas{width:100% !important;max-height:190px;}
+.donut-center{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
+.donut-center strong{font-family:'Cinzel Decorative',serif;font-size:19px;color:var(--gold);line-height:1.1;}
+.donut-center span{font-size:9px;color:var(--muted);margin-top:3px;}
+.contribution-list{min-width:0;}
+.contribution-row{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.contribution-row:last-child{border-bottom:none;}
+.contribution-icon{font-size:15px;width:22px;flex-shrink:0;text-align:center;}
+.contribution-main{min-width:0;flex:1;}
+.contribution-top{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--text);}
+.contribution-top span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.contribution-top strong{color:var(--gold);white-space:nowrap;}
+.contribution-track{height:4px;background:var(--border);border-radius:4px;overflow:hidden;margin:5px 0 3px;}
+.contribution-fill{height:100%;background:var(--gold);border-radius:4px;}
+.contribution-meta{display:flex;justify-content:space-between;gap:5px;font-size:8.5px;color:var(--muted);}
+.rhythm-card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:12px;}
+.rhythm-legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:9px;color:var(--muted);margin:8px 0 10px;}
+.legend-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;background:var(--border);}
+.legend-dot.excellent{background:var(--gold);box-shadow:0 0 5px rgba(245,200,66,.45);}
+.legend-dot.steady{background:#4fc3f7;}
+.legend-dot.started{background:#6b7280;}
+.rhythm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.rhythm-grid.monthly{grid-template-columns:repeat(7,1fr);}
+.rhythm-cell{min-width:0;min-height:56px;border:1px solid rgba(245,200,66,.12);background:rgba(245,200,66,.045);border-radius:9px;padding:6px 3px;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:2px;}
+.rhythm-cell span{font-size:7px;color:var(--muted);text-transform:uppercase;}
+.rhythm-cell strong{font-size:12px;color:var(--text);}
+.rhythm-cell small{font-size:8px;color:var(--gold);font-weight:800;}
+.rhythm-cell.excellent{background:rgba(245,200,66,.13);border-color:rgba(245,200,66,.3);}
+.rhythm-cell.steady{background:rgba(79,195,247,.08);border-color:rgba(79,195,247,.2);}
+.rhythm-cell.started{background:rgba(107,114,128,.08);border-color:rgba(107,114,128,.2);}
+.rhythm-cell.zero{opacity:.7;}
+.rhythm-cell.empty{background:transparent;border-style:dashed;border-color:var(--border);opacity:.55;}
+.breakdown-meta{font-size:9px;color:var(--muted);margin-top:2px;}
+.stats-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.stats-stat{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 9px;min-width:0;}
+.stats-stat span{display:block;font-size:9px;color:var(--muted);margin-bottom:3px;}
+.stats-stat strong{font-size:12px;color:var(--blue);white-space:nowrap;}
+.stats-stat strong.danger{color:#ff6b6b;}
+.pdf-export-title{font-family:Georgia,serif;color:#1a1a2e;text-align:center;font-size:22px;font-weight:700;margin:0 0 4px;padding-bottom:9px;border-bottom:2px solid #d4a832;}
+.pdf-export-subtitle{font-family:Georgia,serif;color:#555;text-align:center;font-size:11px;margin:0 0 18px;}
+.pdf-report-export{font-family:Georgia,serif;background:#fff;color:#1a1a2e;padding:18px 20px;}
+.pdf-report-export .chartjs-card,.pdf-report-export .progress-chart,.pdf-report-export .task-breakdown,.pdf-report-export .hours-report,.pdf-report-export .analytics-insight,.pdf-report-export .stat-card,.pdf-report-export .rhythm-card{break-inside:avoid;page-break-inside:avoid;}
+/* Explicit light-theme report styling prevents dark-theme text from disappearing in PDFs. */
+.pdf-report-export .analytics-insight{background:#fffaf0 !important;border:1px solid #dfc87b !important;color:#252525 !important;}
+.pdf-report-export .analytics-insight-title,.pdf-report-export .analytics-insight-badge{color:#8a6500 !important;}
+.pdf-report-export .analytics-insight-lead,.pdf-report-export .insight-mini strong{color:#252525 !important;}
+.pdf-report-export .analytics-insight-list,.pdf-report-export .insight-mini span,.pdf-report-export .insight-mini small,.pdf-report-export .chart-subline,.pdf-report-export .breakdown-meta,.pdf-report-export .contribution-meta,.pdf-report-export .rhythm-legend{color:#555 !important;}
+.pdf-report-export .insight-mini{background:#f7f1e1 !important;border-color:#e6dcc2 !important;}
+.pdf-report-export .chartjs-card,.pdf-report-export .rhythm-card,.pdf-report-export .task-breakdown,.pdf-report-export .hours-report{background:#fff !important;border-color:#dedede !important;color:#252525 !important;}
+.pdf-report-export .chart-title,.pdf-report-export .breakdown-name,.pdf-report-export .contribution-top,.pdf-report-export .stats-stat strong,.pdf-report-export .stats-stat span{color:#333 !important;}
+.pdf-report-export .contribution-track,.pdf-report-export .breakdown-bar-wrap{background:#e8e8e8 !important;}
+.pdf-report-export .rhythm-cell{background:#f7f4eb !important;border-color:#ded3ad !important;}
+.pdf-report-export .rhythm-cell.excellent{background:#fff2bf !important;border-color:#d9bd58 !important;}
+.pdf-report-export .rhythm-cell.steady{background:#eef8fc !important;border-color:#b9ddea !important;}
+.pdf-report-export .rhythm-cell span,.pdf-report-export .rhythm-cell small{color:#666 !important;}
+.pdf-report-export .rhythm-cell strong{color:#333 !important;}
+.pdf-report-export .stats-stat{background:#f8f8f8 !important;border-color:#e4e4e4 !important;}
+.pdf-report-export .stats-stat strong{color:#277da8 !important;}
+.pdf-report-export .stats-stat strong.danger{color:#b33a3a !important;}
+@media(max-width:600px){.breakdown-visual{grid-template-columns:1fr;}.donut-wrap{min-height:165px;max-width:240px;margin:0 auto;width:100%;}.contribution-list{width:100%;}.analytics-insight-grid{grid-template-columns:1fr 1fr;}.rhythm-grid{gap:4px;}.rhythm-cell{min-height:51px;padding:5px 2px;}.rhythm-cell span{font-size:6.5px;}.rhythm-cell strong{font-size:11px;}.rhythm-cell small{font-size:7.5px;}}
+@media(max-width:390px){.diary-export-controls{grid-template-columns:1fr;}.stats-stat-grid{grid-template-columns:1fr 1fr;}.contribution-top{font-size:9.5px;}.contribution-meta{font-size:8px;}}
+@media(max-width:380px){.reco-modal{padding:20px 14px}.reco-title{font-size:15px}.reco-card-text{font-size:11.5px}}
+
 /* WHATS NEW MODAL */
 .whatsnew-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .3s;}
 .whatsnew-overlay.open{opacity:1;pointer-events:all;}
@@ -376,6 +508,39 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
 /* DIVIDER */
 .section-divider{height:1px;background:var(--border);margin:10px 0;}
+
+/* PHASE 1 — SWIPE NAVIGATION & STICKY SCORE — POLISHED */
+.daily-section-viewport{position:relative;overflow:hidden;border-radius:16px;margin-bottom:12px;transition:height .35s ease;touch-action:pan-y;}
+.daily-section-track{display:flex;align-items:flex-start;width:100%;transition:transform .35s cubic-bezier(.22,.61,.36,1);will-change:transform;}
+.daily-section-slide{flex:0 0 100%;width:100%;min-width:100%;padding:0 1px;}
+.daily-section-slide>.section-card{margin-bottom:0;}
+.daily-section-slide.is-hidden{display:none!important;}
+.swipe-hint{text-align:center;font-size:10px;color:var(--muted);letter-spacing:.6px;margin:-3px 0 10px;opacity:.75;}
+.swipe-dots{display:flex;align-items:center;justify-content:center;gap:7px;margin:0 0 12px;}
+.swipe-dot{width:7px;height:7px;border-radius:50%;border:1px solid var(--border);background:var(--surface);padding:0;cursor:pointer;transition:all .25s;}
+.swipe-dot.active{width:22px;border-radius:8px;background:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(245,200,66,.35);}
+.swipe-dot:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
+/* The compact score only appears after the hero score scrolls away — never both at once. */
+.sticky-score-bar{position:fixed;top:10px;left:50%;width:min(calc(100% - 28px),560px);z-index:700;display:flex;align-items:center;gap:10px;background:rgba(17,19,24,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(245,200,66,.2);border-radius:14px;padding:8px 11px;margin:0;box-shadow:0 8px 28px rgba(0,0,0,.34);opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,-12px);transition:opacity .25s ease,transform .25s ease,visibility .25s ease;}
+.sticky-score-bar.is-visible{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0);}
+.sticky-score-ring{position:relative;width:38px;height:38px;flex:0 0 38px;}
+.sticky-score-ring svg{width:38px;height:38px;transform:rotate(-90deg);}
+.sticky-ring-bg{fill:none;stroke:var(--border);stroke-width:5;}
+.sticky-ring-fill{fill:none;stroke:var(--gold);stroke-width:5;stroke-linecap:round;stroke-dasharray:94.25;stroke-dashoffset:94.25;transition:stroke-dashoffset .45s ease,stroke .35s ease;}
+.sticky-score-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--gold);font-family:'Outfit',sans-serif;}
+.sticky-score-info{flex:1;min-width:0;}
+.sticky-score-title{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sticky-score-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.sticky-score-pct{font-size:12px;font-weight:800;color:var(--gold);min-width:40px;text-align:right;font-family:'Outfit',sans-serif;}
+/* Readability floor for user-facing descriptions/subtitles. Tiny type remains reserved for metadata. */
+.mode-desc,.section-subtitle,.gaze-desc,.music-sub,.dhikr-sub,.quran-page-sub,.kahf-desc,.nightly-desc,.fast-sub,.backup-sub,.sisters-banner,.hayd-banner{font-size:12px;line-height:1.45;}
+.salah-select,.vol-other-input,.dhikr-select,.meta-input,.dhikr-select-inline,.dhikr-custom-input{font-size:12px;}
+.autosave-text,.reset-btn,.add-habit-btn,.add-nafl-btn,.add-dhikr-btn,.dhikr-add-confirm-btn,.quran-read-btn,.quran-ayah-btn,.sos-next-btn{font-size:12px;}
+.streak-label,.streak-unit,.milestones-label,.backup-btn-sub,.trigger-entry-date{font-size:10px;}
+.streak-value,.breakdown-item-val,.stat-value,.badge-days{font-family:'Outfit',sans-serif;font-weight:800;}
+#score-number{font-family:'Cinzel Decorative',serif;}
+@media (prefers-reduced-motion:reduce){.daily-section-track,.daily-section-viewport,.sticky-ring-fill,.sticky-score-bar{transition:none!important}.daily-section-slide{animation:none!important}}
+@media (max-width:380px){.sticky-score-bar{padding:7px 9px;gap:8px}.sticky-score-ring,.sticky-score-ring svg{width:34px;height:34px}.sticky-score-ring{flex-basis:34px}.sticky-score-title{font-size:11px}.sticky-score-pct{font-size:11px}}
 
 @keyframes fadeDown{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
@@ -518,6 +683,51 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .settings-lbl{font-size:12px;color:var(--text);font-weight:500;}
 .settings-desc{font-size:10px;color:var(--muted);margin-top:2px;}
 
+/* SECTION CUSTOMIZATION */
+.section-manager-btn{width:100%;margin-top:10px;padding:10px 14px;border:1px solid rgba(245,200,66,.35);border-radius:10px;background:rgba(245,200,66,.06);color:var(--gold);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;}
+.section-manager-btn:hover{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.55);}
+.section-manager-overlay{position:fixed;inset:0;z-index:850;background:rgba(5,7,12,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-start;justify-content:center;padding:18px 12px;overflow-y:auto;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s ease,visibility .25s ease;}
+.section-manager-overlay.open{opacity:1;visibility:visible;pointer-events:auto;}
+.section-manager-modal{width:100%;max-width:560px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.section-manager-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;}
+.section-manager-title{font-size:16px;font-weight:700;color:var(--text);}
+.section-manager-sub{font-size:11px;color:var(--muted);line-height:1.5;margin-top:3px;}
+.section-manager-close{border:1px solid var(--border);background:var(--surface);color:var(--muted);width:34px;height:34px;border-radius:10px;font-size:20px;cursor:pointer;}
+.section-manager-list{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;}
+.section-manager-item{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:9px 10px;}
+.section-manager-item.disabled{opacity:.55;}
+.section-manager-item-main{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+.section-manager-icon{width:28px;text-align:center;font-size:19px;flex-shrink:0;}
+.section-manager-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.section-manager-tag{font-size:9px;color:var(--muted);margin-top:1px;}
+.section-manager-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+.section-move-btn{width:30px;height:30px;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:8px;cursor:pointer;font-size:14px;}
+.section-move-btn:disabled{opacity:.3;cursor:not-allowed;}
+.section-delete-btn{width:30px;height:30px;border:1px solid rgba(255,107,107,.25);background:rgba(255,107,107,.05);color:#ff6b6b;border-radius:8px;cursor:pointer;font-size:14px;}
+.section-toggle{width:18px;height:18px;accent-color:var(--gold);flex-shrink:0;}
+.section-add-panel{border-top:1px solid var(--border);padding-top:14px;}
+.section-add-title{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px;}
+.section-form-grid{display:grid;grid-template-columns:58px 1fr;gap:7px;}
+.section-manager-input,.section-manager-textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Outfit',sans-serif;font-size:12px;padding:9px 10px;outline:none;}
+.section-manager-input:focus,.section-manager-textarea:focus{border-color:var(--gold);}
+.section-manager-textarea{min-height:86px;resize:vertical;line-height:1.45;grid-column:1/-1;}
+.section-form-help{font-size:10px;color:var(--muted);line-height:1.45;margin:6px 0 9px;grid-column:1/-1;}
+.section-add-confirm{width:100%;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--gold),#d9a928);color:#111;font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;cursor:pointer;}
+.custom-section-task{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--border);}
+.custom-section-task:last-child{border-bottom:none;}
+.custom-section-task-name{flex:1;font-size:12px;font-weight:600;color:var(--text);}
+.custom-section-task-pts{font-size:11px;color:var(--muted);flex-shrink:0;}
+.custom-section-empty{font-size:11px;color:var(--muted);text-align:center;padding:10px 0;}
+.custom-section-note{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.45;}
+.custom-breakdown-grid{margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.custom-breakdown-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 10px;}
+.custom-breakdown-name{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.custom-breakdown-val{font-size:14px;font-weight:800;color:var(--gold);margin-top:2px;}
+.salah-select{flex:0 1 520px;}
+.salah-row{justify-content:flex-start;}
+@media(max-width:600px){.salah-select{flex:1 1 auto;max-width:none;}.section-manager-modal{padding:14px;}}
+@media(max-width:390px){.custom-breakdown-grid{grid-template-columns:1fr;}.section-form-grid{grid-template-columns:50px 1fr;}}
+
 /* PRINT / PDF STYLES */
 .print-pdf-btn{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid rgba(79,195,247,.35);color:var(--blue);font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;padding:9px 16px;border-radius:10px;cursor:pointer;transition:all .2s;margin-bottom:14px;letter-spacing:.3px;}
 .print-pdf-btn:hover{background:rgba(79,195,247,.08);border-color:rgba(79,195,247,.6);box-shadow:0 3px 12px rgba(79,195,247,.15);}
@@ -535,6 +745,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .diary-pdf-btn:hover{background:linear-gradient(135deg,rgba(245,200,66,.28),rgba(255,179,71,.28));box-shadow:0 4px 18px rgba(245,200,66,.2);transform:translateY(-1px);}
 .diary-pdf-btn:active{transform:scale(.98);}
 .diary-pdf-btn.loading{opacity:.7;pointer-events:none;}
+.diary-export-panel{background:linear-gradient(135deg,rgba(245,200,66,.055),rgba(79,195,247,.035));border:1px solid rgba(245,200,66,.18);border-radius:15px;padding:14px;margin-bottom:20px;}
+.diary-export-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:11px;}
+.diary-export-title{font-size:13px;font-weight:800;color:var(--gold);}
+.diary-export-sub{font-size:10.5px;line-height:1.5;color:var(--muted);margin-top:3px;}
+.diary-export-controls{display:grid;grid-template-columns:1fr 1.25fr;gap:8px;margin-bottom:9px;}
+.diary-export-select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Outfit',sans-serif;font-size:11px;font-weight:600;padding:10px 11px;outline:none;min-height:40px;}
+.diary-export-select:focus{border-color:rgba(245,200,66,.5);}
+.diary-export-select option{background:var(--card);color:var(--text);}
+.diary-export-panel .diary-pdf-btn{margin-bottom:0;}
 
 /* Timeline feed */
 .diary-feed{display:flex;flex-direction:column;gap:0;}
@@ -594,6 +813,95 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   .progress-chart,.task-breakdown,.hours-report,.triggers-log{background:#161a22 !important;border:1px solid #1f2535 !important;border-radius:8px;break-inside:avoid;margin-bottom:8px;}
   @page{size:A4;margin:12mm 10mm;}
 }
+
+/* ═══ UX POLISH PASS — READABILITY, HIERARCHY & RESTRAINT ═══ */
+.nav-tabs{margin-bottom:22px;}
+.nav-tab{font-size:12px;min-height:42px;}
+.header{margin-bottom:22px;}
+.header-title{font-size:clamp(15px,4vw,19px);}
+.header-sub{font-size:12px;}
+#date-display{font-size:14px;}
+.mode-panel{padding:14px 15px;margin-bottom:16px;}
+.mode-name{font-size:13px;}
+.section-card{padding:16px 16px;margin-bottom:14px;}
+.section-card-header{gap:11px;margin-bottom:16px;}
+.section-icon{font-size:23px;width:38px;}
+.section-title{font-size:14px;line-height:1.25;}
+.section-subtitle{font-size:12px;line-height:1.45;}
+/* Section totals are intentionally unified: score is feedback, not the visual identity of each worship category. */
+.section-pts-badge{font-size:11px!important;background:rgba(245,200,66,.07)!important;border:1px solid rgba(245,200,66,.22)!important;color:var(--gold)!important;padding:4px 9px!important;}
+.salah-name,.gaze-name,.music-name,.dhikr-name,.quran-name,.quran-page-name,.kahf-name,.nightly-name,.fast-name{font-size:13px;}
+.gaze-option{padding:11px 12px;}
+.gaze-desc,.music-sub,.dhikr-sub,.quran-page-sub,.kahf-desc,.nightly-desc,.fast-sub{font-size:12px;}
+.cb-box{width:23px;height:23px;}
+.add-habit-btn,.add-nafl-btn,.add-dhikr-btn,.dhikr-add-confirm-btn,.quran-read-btn,.quran-ayah-btn{min-height:38px;}
+.score-section{margin-bottom:22px;}
+.score-label{font-size:11px;}
+#rating-badge{font-size:13px;padding:6px 17px;}
+.streak-row{gap:10px;margin-bottom:18px;}
+.streak-card{padding:13px;}
+.streak-label{font-size:10px;letter-spacing:1.2px;}
+.streak-value{font-size:22px;}
+.streak-unit{font-size:10px;}
+.milestones-label{font-size:10px;}
+.badge-item{padding:11px 5px 9px;}
+.badge-days{font-size:11px;}
+.badge-name{font-size:10px;}
+.section-title-label{font-size:11px;letter-spacing:1.6px;}
+.breakdown-item-label{font-size:11px;}
+.breakdown-item-val{font-size:17px;}
+.save-day-btn{min-height:48px;font-size:15px;}
+.reflection-field{font-size:14px;}
+.analytics-sub{font-size:13px;}
+.period-tab{font-size:12px;min-height:40px;}
+.stat-label,.bar-label{font-size:10px;}
+.stat-value{font-size:21px;}
+.backup-btn-label{font-size:12px;}
+.backup-btn-sub{font-size:10px;}
+/* Keep semantic warning colors, but remove decorative category-color competition. */
+.section-pts-badge + *{min-width:0;}
+.daily-section-slide{padding:0;}
+.swipe-hint{font-size:11px;margin:-1px 0 11px;}
+.swipe-dots{margin-bottom:14px;}
+@media (max-width:380px){
+  body{padding-left:10px;padding-right:10px;}
+  .nav-tab{font-size:11px;padding-left:2px;padding-right:2px;}
+  .section-card{padding:14px 13px;}
+  .section-title{font-size:13px;}
+  .section-subtitle{font-size:11.5px;}
+  .section-pts-badge{font-size:10px!important;padding:3px 7px!important;}
+  .salah-name{width:68px;}
+  .gaze-option{padding:10px 9px;}
+  .gaze-name,.music-name,.dhikr-name,.quran-name,.quran-page-name,.kahf-name,.nightly-name,.fast-name{font-size:12.5px;}
+}
+
+
+/* ══════════════════ ISLAMIC DAILY REMINDER ══════════════════ */
+.reminder-overlay{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,5,9,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .35s ease,visibility .35s ease;}
+.reminder-overlay.open{opacity:1;visibility:visible;pointer-events:auto;}
+.reminder-modal{position:relative;width:min(100%,470px);max-height:min(88vh,720px);overflow-y:auto;padding:30px 24px 22px;border:1px solid rgba(245,200,66,.38);border-radius:24px;background:radial-gradient(circle at 50% 0%,rgba(245,200,66,.12),transparent 42%),linear-gradient(145deg,#191d27,#0e1118 72%);box-shadow:0 30px 100px rgba(0,0,0,.72),0 0 0 1px rgba(255,255,255,.025) inset,0 0 45px rgba(245,200,66,.08);transform:translateY(22px) scale(.96);transition:transform .4s cubic-bezier(.2,.8,.2,1);scrollbar-width:thin;}
+.reminder-overlay.open .reminder-modal{transform:translateY(0) scale(1);}
+.reminder-modal::before{content:'';position:absolute;inset:8px;border:1px solid rgba(245,200,66,.10);border-radius:18px;pointer-events:none;}
+.reminder-close{position:absolute;top:12px;right:14px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.035);color:var(--muted);font-size:22px;line-height:1;cursor:pointer;z-index:2;transition:all .2s;}
+.reminder-close:hover{color:var(--gold);border-color:rgba(245,200,66,.35);background:rgba(245,200,66,.08);}
+.reminder-ornament{text-align:center;color:var(--gold);font-size:17px;letter-spacing:8px;margin:1px 0 14px;text-shadow:0 0 18px rgba(245,200,66,.35);}
+.reminder-kicker{text-align:center;color:var(--gold);font-size:10px;font-weight:800;letter-spacing:2.2px;text-transform:uppercase;margin-bottom:8px;}
+.reminder-title{font-family:'Cinzel Decorative',serif;font-size:clamp(17px,5vw,22px);line-height:1.45;color:#f8df86;text-align:center;margin-bottom:17px;text-shadow:0 0 22px rgba(245,200,66,.18);}
+.reminder-arabic{font-family:Georgia,'Times New Roman',serif;direction:rtl;text-align:center;font-size:clamp(23px,6vw,31px);line-height:2;color:#f7d978;padding:15px 13px 13px;margin:0 auto 14px;border-top:1px solid rgba(245,200,66,.16);border-bottom:1px solid rgba(245,200,66,.16);text-shadow:0 2px 14px rgba(245,200,66,.12);}
+.reminder-text{font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.75;color:#f0f1f5;text-align:center;padding:0 5px;}
+.reminder-source{text-align:center;font-size:11px;font-weight:700;color:var(--gold);margin-top:11px;letter-spacing:.35px;}
+.reminder-divider{width:58px;height:1px;background:var(--gold);opacity:.45;margin:17px auto 15px;position:relative;}
+.reminder-divider::after{content:'✦';position:absolute;left:50%;top:50%;transform:translate(-50%,-55%);background:#12151c;padding:0 7px;color:var(--gold);font-size:9px;}
+.reminder-action{display:flex;gap:9px;justify-content:center;}
+.reminder-btn{flex:1;min-height:46px;border-radius:13px;border:1px solid rgba(245,200,66,.42);background:linear-gradient(180deg,rgba(245,200,66,.18),rgba(245,200,66,.08));color:var(--gold);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .22s;box-shadow:0 5px 16px rgba(0,0,0,.2);}
+.reminder-btn:hover{transform:translateY(-1px);background:rgba(245,200,66,.20);border-color:rgba(245,200,66,.65);}
+.reminder-btn.secondary{background:var(--gold);color:#111;border-color:var(--gold);}
+.reminder-btn.secondary:hover{background:#ffda5d;box-shadow:0 8px 24px rgba(245,200,66,.18);}
+.reminder-note{text-align:center;color:#737987;font-size:9px;line-height:1.5;margin-top:13px;padding:0 12px;}
+.reminder-progress{text-align:center;color:#656b79;font-size:9px;letter-spacing:1px;margin-top:10px;}
+@media(max-width:380px){.reminder-overlay{padding:12px}.reminder-modal{padding:27px 17px 18px;border-radius:21px}.reminder-arabic{font-size:22px;line-height:1.9}.reminder-text{font-size:14px}.reminder-action{flex-direction:column}.reminder-btn{min-height:44px}.reminder-note{font-size:8.5px}}
+@media(prefers-reduced-motion:reduce){.reminder-overlay,.reminder-modal{transition:none}.reminder-btn:hover{transform:none}}
+
 </style>
 </head>
 <body>
@@ -640,11 +948,44 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   </div>
 </div>
 
+
+<!-- ══════════════════ ISLAMIC DAILY REMINDER MODAL ══════════════════ -->
+<div class="reminder-overlay" id="reminder-overlay">
+  <div class="reminder-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-title">
+    <button class="reminder-close" onclick="closeIslamicReminder()" aria-label="Close reminder">×</button>
+    <div class="reminder-ornament">✦ ۞ ✦</div>
+    <div class="reminder-kicker">A reminder for the heart</div>
+    <div class="reminder-title" id="reminder-title">Begin with remembrance ✨</div>
+    <div class="reminder-arabic" id="reminder-arabic"></div>
+    <div class="reminder-text" id="reminder-text"></div>
+    <div class="reminder-source" id="reminder-source"></div>
+    <div class="reminder-divider"></div>
+    <div class="reminder-action">
+      <button class="reminder-btn" onclick="showAnotherIslamicReminder()">✨ Another Reminder</button>
+      <button class="reminder-btn secondary" onclick="closeIslamicReminder()">Begin My Day</button>
+    </div>
+    <div class="reminder-progress" id="reminder-progress"></div>
+    <div class="reminder-note">A small reminder — not a replacement for learning the Qur’an and Sunnah.</div>
+  </div>
+</div>
+
+<!-- ══════════════════ PERSONALIZED RECOMMENDATION MODAL ══════════════════ -->
+<div class="reco-overlay" id="reco-overlay">
+  <div class="reco-modal" role="dialog" aria-modal="true" aria-labelledby="reco-title">
+    <button class="wn-close" onclick="closeRecommendations()" aria-label="Close recommendations">×</button>
+    <div class="reco-kicker">A gentle reflection on your recent days</div>
+    <div class="reco-title" id="reco-title">🌱 Your Next Step</div>
+    <div class="reco-subtitle" id="reco-subtitle">Based on your saved tracker history — not a judgement.</div>
+    <div id="reco-content"></div>
+    <button class="reco-close" onclick="closeRecommendations()">Done — back to my journey</button>
+  </div>
+</div>
+
 <!-- ══════════════════ WHAT'S NEW MODAL ══════════════════ -->
 <div class="whatsnew-overlay" id="whatsnew-overlay">
   <div class="whatsnew-modal">
     <button class="wn-close" onclick="closeWhatsNew()">×</button>
-    <div class="wn-title">What's New in v2.5 🔥</div>
+    <div class="wn-title">What's New in v2.8 🔥</div>
     <div class="wn-subtitle">Latest updates & improvements</div>
     <div class="wn-item">
       <div class="wn-item-icon">🧕</div>
@@ -669,6 +1010,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="wn-item">
       <div class="wn-item-icon">📝</div>
       <div class="wn-item-text"><strong>Reflection Diary &amp; PDF Export</strong>A brand-new tab to view all your past daily spiritual reflections in a beautiful timeline format, with the ability to download them as a clean, readable PDF!</div>
+    </div>
+    <div class="wn-item">
+      <div class="wn-item-icon">🌱</div>
+      <div class="wn-item-text"><strong>Personalized Recommendations</strong>Your recent saved patterns can now surface a small number of practical areas to focus on — guidance, not judgement.</div>
+    </div>
+    <div class="wn-item">
+      <div class="wn-item-icon">📊</div>
+      <div class="wn-item-text"><strong>Deeper Reports</strong>Weekly and monthly reports now include a plain-language interpretation of trends, strongest areas, and gentle areas for attention.</div>
+    </div>
+    <div class="wn-item">
+      <div class="wn-item-icon">📄</div>
+      <div class="wn-item-text"><strong>Higher-Quality Reports</strong>Weekly and monthly reports can now be exported as dedicated A4 PDFs with higher-resolution rendering and cleaner page layout.</div>
     </div>
   </div>
 </div>
@@ -801,9 +1154,30 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div id="rating-badge">🌙 Begin your ibadah</div>
     </div>
 
+    <!-- Phase 1: compact score appears after the hero score scrolls away -->
+    <div class="sticky-score-bar" id="sticky-score-bar">
+      <div class="sticky-score-ring">
+        <svg viewBox="0 0 38 38" aria-hidden="true">
+          <circle class="sticky-ring-bg" cx="19" cy="19" r="15"/>
+          <circle class="sticky-ring-fill" id="sticky-ring" cx="19" cy="19" r="15"/>
+        </svg>
+        <div class="sticky-score-inner" id="sticky-score-number">0</div>
+      </div>
+      <div class="sticky-score-info">
+        <div class="sticky-score-title" id="sticky-section-title">Salah Tracker</div>
+        <div class="sticky-score-sub" id="sticky-section-sub">Swipe left or right to move between sections</div>
+      </div>
+      <div class="sticky-score-pct" id="sticky-score-pct">0%</div>
+    </div>
+
     <!-- Jummah note -->
     <div class="jummah-note" id="jummah-note">🕌 Today is Friday — Dhuhr is replaced by Jummah (+20 pts for congregation!)</div>
 
+    <!-- Phase 1: swipeable daily sections -->
+    <div class="swipe-hint" id="swipe-hint">↔ Swipe left or right to navigate sections</div>
+    <div class="daily-section-viewport" id="daily-section-viewport">
+      <div class="daily-section-track" id="daily-section-track">
+        <div class="daily-section-slide" data-section-index="0" data-section-key="salah" data-section-name="Salah Tracker">
     <!-- ── 1. SALAH TRACKER (hayd-exempt) ── -->
     <div class="section-card hayd-exempt" id="salah-section" style="animation-delay:.05s">
       <div class="section-card-header">
@@ -859,7 +1233,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         </div>
       </div>
     </div>
-
+        </div>
+        <div class="daily-section-slide" data-section-index="1" data-section-key="gaze" data-section-name="Lowering of Gaze">
     <!-- ── 2. GAZE TRACKER ── -->
     <div class="section-card" style="animation-delay:.08s">
       <div class="section-card-header">
@@ -897,7 +1272,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <textarea class="trigger-field" id="trigger-text" rows="2" placeholder="Be honest with yourself. What triggered it? (e.g. boredom, loneliness, late night, specific app...)"></textarea>
       </div>
     </div>
-
+        </div>
+        <div class="daily-section-slide" data-section-index="2" data-section-key="music" data-section-name="Leaving Music">
     <!-- ── 3. LEAVING MUSIC TRACKER ── -->
     <div class="section-card" style="animation-delay:.11s">
       <div class="section-card-header">
@@ -918,7 +1294,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <div class="music-success-banner" id="music-banner">🌸 MashaAllah! Protecting your heart from the heedlessness of music is a great act of worship.</div>
     </div>
-
+        </div>
+        <div class="daily-section-slide" data-section-index="3" data-section-key="dhikr" data-section-name="Dhikr, Azkar & Istighfar">
     <!-- ── 4. DHIKR & AZKAR (multi-select, custom, individual counters) ── -->
     <div class="section-card dhikr-hayd-glow" id="dhikr-section" style="animation-delay:.14s">
       <div class="section-card-header">
@@ -973,7 +1350,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <button class="dhikr-add-confirm-btn" onclick="addDhikrCustom()">＋ Add</button>
       </div>
     </div>
-
+        </div>
+        <div class="daily-section-slide" data-section-index="4" data-section-key="quran" data-section-name="Quran & Nightly Sunnah">
     <!-- ── 5. QURAN & NIGHTLY SUNNAH (Kahf conditional, page checkbox, Daily Ayah widget) ── -->
     <div class="section-card" id="quran-section" style="animation-delay:.17s">
       <div class="section-card-header">
@@ -1048,7 +1426,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         </div>
       </div>
     </div>
-
+        </div>
+        <div class="daily-section-slide" data-section-index="5" data-section-key="fast" data-section-name="Voluntary Fast">
     <!-- ── 6. VOLUNTARY FAST (hayd-exempt) ── -->
     <div class="section-card hayd-exempt" id="fast-section" style="animation-delay:.2s">
       <div class="section-card-header">
@@ -1068,7 +1447,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div style="font-size:12px;font-weight:700;color:var(--muted)">+20 pts</div>
       </div>
     </div>
-
+        </div>
+        <div class="daily-section-slide" data-section-index="6" data-section-key="habits" data-section-name="New Habit Tracker">
     <!-- ── 7. CUSTOM HABITS ── -->
     <div class="section-card" style="animation-delay:.23s">
       <div class="section-card-header">
@@ -1082,6 +1462,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div id="habits-container"></div>
       <button class="add-habit-btn" onclick="addHabit()">+ Add New Habit</button>
     </div>
+        </div>
+        <!-- Custom sections are injected here from the user's saved configuration. -->
+      </div>
+    </div>
+    <div class="swipe-dots" id="swipe-dots" aria-label="Daily tracker sections"></div>
 
     <!-- Score Breakdown -->
     <div class="score-breakdown-card">
@@ -1095,6 +1480,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="breakdown-item"><div class="breakdown-item-label">🌙 Fast</div><div class="breakdown-item-val" id="bd-fast" style="color:var(--teal)">0</div></div>
         <div class="breakdown-item"><div class="breakdown-item-label">🌱 Habits</div><div class="breakdown-item-val" id="bd-habits" style="color:var(--extra)">0</div></div>
       </div>
+      <div id="custom-breakdown-grid" class="custom-breakdown-grid"></div>
     </div>
 
     <!-- Reflection -->
@@ -1130,6 +1516,36 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <button class="section-manager-btn" onclick="openSectionManager()">🧩 Customize Daily Sections</button>
+    </div>
+
+    <!-- ── Supabase Account & Cloud Sync ── -->
+    <div class="account-panel" style="margin-top:4px">
+      <div class="account-head">
+        <div class="section-icon">☁️</div>
+        <div class="section-title-wrap">
+          <div class="account-title">Private Cloud & Accountability</div>
+          <div class="account-sub">Optional sync. Your private data remains protected by Supabase Auth + Row Level Security.</div>
+        </div>
+      </div>
+      <div class="account-status" id="account-status">
+        <span class="account-dot" id="account-dot"></span>
+        <span class="account-email" id="account-email">Not signed in — local-only mode</span>
+      </div>
+      <div class="account-actions" id="account-actions">
+        <button class="account-btn primary" onclick="openAccountModal()">🔐 Sign In / Create Account</button>
+      </div>
+      <div class="account-toggle-row" id="cloud-sync-row" style="display:none">
+        <div>
+          <div class="settings-lbl">☁️ Enable Cloud Sync</div>
+          <div class="settings-desc">Sync saved daily records and preferences to your private account.</div>
+        </div>
+        <label class="toggle-wrap">
+          <input type="checkbox" class="toggle-input" id="cloud-sync-toggle" onchange="setCloudSyncEnabled(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="account-sync-note" id="account-sync-note">Local-first: nothing is uploaded until you sign in and explicitly enable Cloud Sync.</div>
     </div>
 
     <!-- ── Backup & Restore ── -->
@@ -1154,13 +1570,45 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         </button>
       </div>
       <input type="file" id="import-file-input" accept=".json" onchange="importBackup(event)">
-      <!-- Cloud Sync Button (Feature 7) — ready for Firebase injection -->
-      <button class="cloud-sync-btn" onclick="handleCloudSync()">
-        <span class="cloud-sync-icon">☁️</span>
-        Opt-In: Cloud Sync / Join Accountability Group
-        <span style="font-size:10px;opacity:.6;margin-left:4px">(Coming Soon)</span>
-      </button>
       <div class="backup-status" id="backup-status"></div>
+    </div>
+
+    <!-- ── Supabase Account Modal ── -->
+    <div class="account-modal-overlay" id="account-modal-overlay" onclick="if(event.target===this)closeAccountModal()">
+      <div class="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
+        <button class="account-modal-close" onclick="closeAccountModal()" aria-label="Close">×</button>
+        <div class="account-modal-title" id="account-modal-title">Private Cloud</div>
+        <div class="account-modal-sub">Sign in to sync your Spiritual Tracker across devices. Your account data is protected by database-level authorization.</div>
+        <input class="account-field" id="account-email-input" type="email" autocomplete="email" placeholder="Email address">
+        <input class="account-field" id="account-password-input" type="password" autocomplete="current-password" placeholder="Password (minimum 8 characters)">
+        <button class="account-modal-submit" id="account-submit-btn" onclick="submitAccountAuth()">🔐 Sign In</button>
+        <div class="account-actions" style="margin-top:8px">
+          <button class="account-btn" onclick="submitAccountAuth('signup')">Create Account</button>
+          <button class="account-btn" onclick="submitAccountAuth('reset')">Reset Password</button>
+        </div>
+        <div class="account-modal-status" id="account-modal-status"></div>
+      </div>
+    </div>
+
+    <!-- ── Section Customization Modal ── -->
+    <div class="section-manager-overlay" id="section-manager-overlay" onclick="if(event.target===this)closeSectionManager()">
+      <div class="section-manager-modal" role="dialog" aria-modal="true" aria-labelledby="section-manager-title">
+        <div class="section-manager-head">
+          <div><div class="section-manager-title" id="section-manager-title">🧩 Customize Daily Sections</div><div class="section-manager-sub">Choose what appears in your daily tracker, change the order, or create your own section.</div></div>
+          <button class="section-manager-close" onclick="closeSectionManager()" aria-label="Close">×</button>
+        </div>
+        <div class="section-manager-list" id="section-manager-list"></div>
+        <div class="section-add-panel">
+          <div class="section-add-title">＋ Add a Custom Section</div>
+          <div class="section-form-grid">
+            <input class="section-manager-input" id="custom-section-icon" maxlength="4" value="📝" aria-label="Icon">
+            <input class="section-manager-input" id="custom-section-name" maxlength="40" placeholder="Section name (e.g. Dua & Sunnah)">
+            <textarea class="section-manager-textarea" id="custom-section-tasks" placeholder="Task name | points&#10;Example: Read morning dua | 2&#10;Make 100 salawat | 1&#10;Any line without points gets +1 pt"></textarea>
+            <div class="section-form-help">Each line becomes a checkbox. Points are optional; use <strong>Task | points</strong>. Custom sections are included in your score and reports.</div>
+          </div>
+          <button class="section-add-confirm" onclick="addCustomSection()">＋ Add Section</button>
+        </div>
+      </div>
     </div>
 
   </div><!-- end daily tab -->
@@ -1172,7 +1620,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="analytics-title">📅 Weekly Report</div>
         <div class="analytics-sub" id="weekly-range"></div>
       </div>
-      <button class="print-pdf-btn" onclick="window.print()">📥 Download PDF / Print Report</button>
+      <button class="print-pdf-btn" onclick="exportReportPDF('weekly')">📥 Download Weekly PDF</button>
+      <button class="recommendation-trigger" onclick="openRecommendations()">🌱 Show My Personalized Recommendation</button>
       <div class="period-tabs">
         <button class="period-tab active" onclick="showWeek(0,this)">This Week</button>
         <button class="period-tab" onclick="showWeek(-1,this)">Last Week</button>
@@ -1189,7 +1638,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="analytics-title">📊 Monthly Report</div>
         <div class="analytics-sub" id="monthly-range"></div>
       </div>
-      <button class="print-pdf-btn" onclick="window.print()">📥 Download PDF / Print Report</button>
+      <button class="print-pdf-btn" onclick="exportReportPDF('monthly')">📥 Download Monthly PDF</button>
       <div class="period-tabs">
         <button class="period-tab active" onclick="showMonth(0,this)">This Month</button>
         <button class="period-tab" onclick="showMonth(-1,this)">Last Month</button>
@@ -1207,10 +1656,25 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="diary-sub">Your spiritual journey, one day at a time</div>
       </div>
 
-      <!-- PDF Export Button -->
-      <button class="diary-pdf-btn" id="diary-pdf-btn" onclick="exportDiaryPDF()">
-        📥 Download Diary as PDF
-      </button>
+      <!-- Reflection PDF Export -->
+      <div class="diary-export-panel">
+        <div class="diary-export-head">
+          <div>
+            <div class="diary-export-title">📄 Export Reflection Log</div>
+            <div class="diary-export-sub">Choose a specific week or month instead of exporting your entire diary.</div>
+          </div>
+        </div>
+        <div class="diary-export-controls">
+          <select id="diary-export-mode" class="diary-export-select" onchange="updateDiaryExportPeriodOptions()" aria-label="Reflection export period type">
+            <option value="week">📅 Weekly Reflection</option>
+            <option value="month">📊 Monthly Reflection</option>
+          </select>
+          <select id="diary-export-period" class="diary-export-select" aria-label="Reflection export period"></select>
+        </div>
+        <button class="diary-pdf-btn" id="diary-pdf-btn" onclick="exportDiaryPDF()">
+          📥 Download Selected Reflection PDF
+        </button>
+      </div>
 
       <!-- Feed container -->
       <div class="diary-feed" id="diary-feed"></div>
@@ -1269,6 +1733,320 @@ const SECTION_TRACKERS = [
   {key:'habits', icon:'🌱', name:'Habits',      color:'#a8edca'},
 ];
 
+const SECTION_CONFIG_KEY='spt_section_config_v1';
+const BUILTIN_SECTION_META={
+  salah:{icon:'🕌',name:'Salah Tracker',subtitle:'Fardh prayers + Voluntary + Khushu'},
+  gaze:{icon:'👁️',name:'Lowering of Gaze',subtitle:'Awareness + daily discipline'},
+  music:{icon:'🎵',name:'Leaving Music',subtitle:'Music-free day'},
+  dhikr:{icon:'📿',name:'Dhikr, Azkar & Istighfar',subtitle:'Remember Allah throughout the day'},
+  quran:{icon:'📖',name:'Quran & Nightly Sunnah',subtitle:'Daily reading + Surah Kahf + Nightly Sunnah'},
+  fast:{icon:'🌙',name:'Voluntary Fast',subtitle:'Bonus ibadah — not required for 100%'},
+  habits:{icon:'🌱',name:'New Habit Tracker',subtitle:'Build positive habits — +10 pts each'}
+};
+let sectionConfig={order:Object.keys(BUILTIN_SECTION_META),enabled:Object.keys(BUILTIN_SECTION_META).reduce((a,k)=>(a[k]=true,a),{}),custom:[]};
+let customSectionState={};
+function loadSectionConfig(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(SECTION_CONFIG_KEY)||'null');
+    if(raw&&Array.isArray(raw.order)&&raw.enabled&&Array.isArray(raw.custom)){sectionConfig={order:raw.order,enabled:{...sectionConfig.enabled,...raw.enabled},custom:raw.custom.map(x=>({...x,tasks:Array.isArray(x.tasks)?x.tasks:[]}))};}
+  }catch(e){}
+  const all=[...Object.keys(BUILTIN_SECTION_META),...sectionConfig.custom.map(s=>s.id)];
+  sectionConfig.order=[...sectionConfig.order.filter(k=>all.includes(k)),...all.filter(k=>!sectionConfig.order.includes(k))];
+  all.forEach(k=>{if(sectionConfig.enabled[k]===undefined)sectionConfig.enabled[k]=true;});
+}
+function saveSectionConfig(){try{localStorage.setItem(SECTION_CONFIG_KEY,JSON.stringify(sectionConfig));}catch(e){} if(currentSupabaseUser&&cloudSyncEnabled){clearTimeout(window._sectionCloudTimer);window._sectionCloudTimer=setTimeout(()=>_savePreferencesToCloud().catch(console.error),600);}}
+function getSectionMeta(key){return BUILTIN_SECTION_META[key]||sectionConfig.custom.find(s=>s.id===key)||{icon:'📝',name:'Custom Section',subtitle:'Personal tracker'};}
+function isSectionEnabled(key){return sectionConfig.enabled[key]!==false;}
+function getCustomSection(key){return sectionConfig.custom.find(s=>s.id===key)||null;}
+function getSectionOrder(){return sectionConfig.order.filter(k=>BUILTIN_SECTION_META[k]||getCustomSection(k));}
+function escapeHTML(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+loadSectionConfig();
+
+
+
+// ═══════════════════════════════════════════════════
+//  SUPABASE CLOUD FOUNDATION — V3
+//  Publishable key is safe for browser use. RLS is the security boundary.
+// ═══════════════════════════════════════════════════
+const SUPABASE_URL = 'https://ccpaacfzjolyvjnaqtnr.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_oG31xzHY6TBtglRzupiLTg_buUtriv4';
+const supabaseClient = (window.supabase && SUPABASE_PUBLISHABLE_KEY)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+    })
+  : null;
+
+let currentSupabaseUser = null;
+let cloudSyncEnabled = false;
+let _cloudSyncBusy = false;
+
+function _cloudSetStatus(kind,text){
+  const dot=document.getElementById('account-dot');
+  const email=document.getElementById('account-email');
+  const note=document.getElementById('account-sync-note');
+  if(dot) dot.className='account-dot'+(kind?' '+kind:'');
+  if(note) note.textContent=text||'';
+  if(email && currentSupabaseUser && kind==='online') email.textContent=currentSupabaseUser.email||'Signed in';
+}
+
+function _setAccountModalStatus(text,type=''){
+  const el=document.getElementById('account-modal-status');
+  if(el){el.textContent=text;el.className='account-modal-status '+type;}
+}
+
+function openAccountModal(){
+  if(currentSupabaseUser){ return; }
+  document.getElementById('account-modal-overlay')?.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(()=>document.getElementById('account-email-input')?.focus(),50);
+}
+function closeAccountModal(){
+  document.getElementById('account-modal-overlay')?.classList.remove('open');
+  document.body.style.overflow='';
+  _setAccountModalStatus('');
+}
+
+async function submitAccountAuth(mode='signin'){
+  if(!supabaseClient){_setAccountModalStatus('Cloud service is unavailable in this build.','error');return;}
+  const email=document.getElementById('account-email-input')?.value.trim();
+  const password=document.getElementById('account-password-input')?.value||'';
+  if(!email){_setAccountModalStatus('Please enter your email address.','error');return;}
+  if(mode!=='reset' && password.length<8){_setAccountModalStatus('Password must be at least 8 characters.','error');return;}
+  _setAccountModalStatus('Working…');
+  try{
+    let result;
+    if(mode==='signup'){
+      result=await supabaseClient.auth.signUp({email,password});
+    }else if(mode==='reset'){
+      result=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});
+    }else{
+      result=await supabaseClient.auth.signInWithPassword({email,password});
+    }
+    if(result.error) throw result.error;
+    if(mode==='reset'){
+      _setAccountModalStatus('Password reset email sent. Check your inbox.','success');
+      return;
+    }
+    if(mode==='signup' && !result.data.session){
+      _setAccountModalStatus('Account created. Check your email to confirm, then sign in.','success');
+      return;
+    }
+    if(result.data.user) await _handleSignedIn(result.data.user);
+  }catch(err){
+    console.error(err);
+    _setAccountModalStatus(err.message||'Authentication failed.','error');
+  }
+}
+
+async function signOutCloud(){
+  if(!supabaseClient)return;
+  try{
+    await supabaseClient.auth.signOut();
+    currentSupabaseUser=null;
+    cloudSyncEnabled=false;
+    updateAccountUI();
+  }catch(err){console.error(err);}
+}
+
+function updateAccountUI(){
+  const status=document.getElementById('account-status');
+  const actions=document.getElementById('account-actions');
+  const row=document.getElementById('cloud-sync-row');
+  const toggle=document.getElementById('cloud-sync-toggle');
+  const email=document.getElementById('account-email');
+  if(!status||!actions)return;
+  if(currentSupabaseUser){
+    if(email)email.textContent=currentSupabaseUser.email||'Signed in';
+    if(status)status.setAttribute('aria-label','Signed in');
+    if(row)row.style.display='flex';
+    if(toggle)toggle.checked=cloudSyncEnabled;
+    actions.innerHTML='<button class="account-btn primary" onclick="syncNow()">☁️ Sync Now</button><button class="account-btn danger" onclick="signOutCloud()">Sign Out</button>';
+    _cloudSetStatus('online','Signed in. Cloud Sync is '+(cloudSyncEnabled?'ON':'OFF')+'.');
+  }else{
+    if(email)email.textContent='Not signed in — local-only mode';
+    if(row)row.style.display='none';
+    actions.innerHTML='<button class="account-btn primary" onclick="openAccountModal()">🔐 Sign In / Create Account</button>';
+    _cloudSetStatus('','Local-only mode. Nothing is uploaded.');
+  }
+}
+
+async function setCloudSyncEnabled(enabled){
+  cloudSyncEnabled=!!enabled;
+  if(!currentSupabaseUser){
+    cloudSyncEnabled=false;
+    const t=document.getElementById('cloud-sync-toggle');if(t)t.checked=false;
+    return;
+  }
+  try{
+    await _savePreferencesToCloud();
+    updateAccountUI();
+    if(cloudSyncEnabled) await syncNow();
+  }catch(err){
+    console.error(err);
+    cloudSyncEnabled=false;
+    const t=document.getElementById('cloud-sync-toggle');if(t)t.checked=false;
+    _cloudSetStatus('error','Could not enable Cloud Sync. Your local data is unchanged.');
+  }
+}
+
+function _localPayloadToRow(dateKey,payload){
+  return {
+    user_id:currentSupabaseUser.id,
+    record_date:dateKey,
+    score:Number(payload.score)||0,
+    max_score:Number(payload.maxScore)||0,
+    fardh_salah:payload.salahData||{},
+    nafl_salah:payload.voluntary||{},
+    khushu:{value:payload.khushu||''},
+    gaze:{value:payload.gaze||'nottracked',trigger:payload.trigger||''},
+    music_free:!!payload.musicFree,
+    dhikr:payload.dhikrData||[],
+    quran:payload.quran||{},
+    fasting:{done:!!payload.fast},
+    habits:{count:Number(payload.habitsCount)||0,mins:Number(payload.habitsMins)||0,names:payload.habitNames||[]},
+    custom_sections:payload.customSectionData||{},
+    reflection:payload.reflection||{},
+    is_hayd_mode:!!payload.isHaydMode,
+    is_sisters_mode:!!payload.isSistersMode,
+    saved_at:payload.savedAt||new Date().toISOString()
+  };
+}
+
+function _rowToLocalPayload(row){
+  const gaze=row.gaze||{};
+  const khushu=row.khushu||{};
+  const fasting=row.fasting||{};
+  const habitsData=row.habits||{};
+  return {
+    score:Number(row.score)||0,
+    maxScore:Number(row.max_score)||0,
+    salahScore:0,gazeScore:0,musicScore:row.music_free?10:0,dhikrScore:0,quranScore:0,fastScore:fasting.done?20:0,
+    habitsScore:0,
+    salahData:row.fardh_salah||{},
+    voluntary:row.nafl_salah||{},
+    khushu:typeof khushu==='object'?(khushu.value||''):String(khushu||''),
+    gaze:typeof gaze==='object'?(gaze.value||'nottracked'):String(gaze||'nottracked'),
+    trigger:typeof gaze==='object'?(gaze.trigger||''):'',
+    musicFree:!!row.music_free,
+    dhikrData:Array.isArray(row.dhikr)?row.dhikr:[],
+    customSectionData:row.custom_sections||{},
+    quran:row.quran||{},
+    fast:!!fasting.done,
+    habitsCount:Number(habitsData.count)||0,
+    habitsMins:Number(habitsData.mins)||0,
+    habitNames:Array.isArray(habitsData.names)?habitsData.names:[],
+    reflection:row.reflection||{},
+    isHaydMode:!!row.is_hayd_mode,
+    isSistersMode:!!row.is_sisters_mode,
+    savedAt:row.saved_at||row.updated_at||row.created_at
+  };
+}
+
+async function _savePreferencesToCloud(){
+  if(!currentSupabaseUser)return;
+  const payload={
+    user_id:currentSupabaseUser.id,
+    sisters_mode:!!isSistersMode,
+    hayd_mode:!!isHaydMode,
+    sos_visible:document.getElementById('sos-visible-toggle')?.checked!==false,
+    feeling_down_visible:document.getElementById('down-visible-toggle')?.checked!==false,
+    reminder_enabled:true,
+    cloud_sync_enabled:!!cloudSyncEnabled,
+    notification_preferences:{},
+    section_config:sectionConfig,
+    updated_at:new Date().toISOString()
+  };
+  const {error}=await supabaseClient.from('user_preferences').upsert(payload,{onConflict:'user_id'});
+  if(error)throw error;
+}
+
+async function _pullCloudRecords(){
+  const {data,error}=await supabaseClient.from('daily_records').select('*').order('record_date',{ascending:false});
+  if(error)throw error;
+  const history=getStorage();
+  (data||[]).forEach(row=>{
+    const local=history[row.record_date];
+    const remote=_rowToLocalPayload(row);
+    const localTime=local?.savedAt?Date.parse(local.savedAt):0;
+    const remoteTime=remote.savedAt?Date.parse(remote.savedAt):0;
+    if(!local || remoteTime>localTime) history[row.record_date]=remote;
+  });
+  setStorage(history);
+}
+
+async function _pushLocalRecords(){
+  if(!currentSupabaseUser||!cloudSyncEnabled)return;
+  const history=getStorage();
+  const rows=Object.entries(history).map(([dateKey,payload])=>_localPayloadToRow(dateKey,payload));
+  if(!rows.length)return;
+  const {error}=await supabaseClient.from('daily_records').upsert(rows,{onConflict:'user_id,record_date'});
+  if(error)throw error;
+}
+
+async function syncNow(){
+  if(!currentSupabaseUser||!cloudSyncEnabled)return;
+  if(_cloudSyncBusy)return;
+  _cloudSyncBusy=true;
+  _cloudSetStatus('syncing','Syncing your private data…');
+  try{
+    await _pullCloudRecords();
+    await _pushLocalRecords();
+    await _savePreferencesToCloud();
+    updateAccountUI();
+    updateStreakUI();
+    buildDiaryFeed();
+    showBackupStatus('☁️ Private cloud sync complete.','success');
+  }catch(err){
+    console.error(err);
+    _cloudSetStatus('error','Sync failed. Your local data is still safe.');
+    showBackupStatus('❌ Cloud sync failed — local data unchanged.','error');
+  }finally{_cloudSyncBusy=false;}
+}
+
+async function _handleSignedIn(user){
+  currentSupabaseUser=user;
+  closeAccountModal();
+  updateAccountUI();
+  try{
+    // Merge, rather than blindly overwrite: local and cloud records are compared by saved_at.
+    await _pullCloudRecords();
+    cloudSyncEnabled=true;
+    const pref=await supabaseClient.from('user_preferences').select('*').eq('user_id',user.id).maybeSingle();
+    if(pref.data){
+      cloudSyncEnabled=!!pref.data.cloud_sync_enabled;
+      if(pref.data.section_config){
+        try{
+          sectionConfig=pref.data.section_config;
+          saveSectionConfig();
+          applySectionConfig();
+        }catch(e){console.warn('Section config restore failed',e);}
+      }
+    }
+    const t=document.getElementById('cloud-sync-toggle');if(t)t.checked=cloudSyncEnabled;
+    updateAccountUI();
+    if(cloudSyncEnabled) await syncNow();
+    else _cloudSetStatus('online','Signed in. Cloud Sync remains OFF until you enable it.');
+  }catch(err){
+    console.error(err);
+    _cloudSetStatus('error','Signed in, but cloud data could not be loaded.');
+  }
+}
+
+function _onAuthStateChanged(session){
+  currentSupabaseUser=session?.user||null;
+  if(!currentSupabaseUser){
+    cloudSyncEnabled=false;
+    updateAccountUI();
+    return;
+  }
+  _handleSignedIn(currentSupabaseUser);
+}
+
+if(supabaseClient){
+  supabaseClient.auth.getSession().then(({data})=>_onAuthStateChanged(data.session)).catch(console.error);
+  supabaseClient.auth.onAuthStateChange((_event,session)=>_onAuthStateChanged(session));
+}
+
 // ═══════════════════════════════════════════════════
 //  STORAGE
 // ═══════════════════════════════════════════════════
@@ -1283,6 +2061,8 @@ function getDateKey(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padSta
 function applyModesUI(){
   isSistersMode = document.getElementById('sisters-toggle')?.checked || false;
   isHaydMode    = isSistersMode && (document.getElementById('hayd-toggle-input')?.checked || false);
+
+  if(currentSupabaseUser && cloudSyncEnabled){ clearTimeout(window._prefSyncTimer); window._prefSyncTimer=setTimeout(()=>_savePreferencesToCloud().catch(console.error),500); }
 
   // Show/hide hayd sub-toggle
   const haydRow = document.getElementById('hayd-row');
@@ -1335,6 +2115,7 @@ function applyModesUI(){
   // Rebuild salah rows to reflect sisters mode
   buildSalahRows();
   updateScore();
+  refreshSwipeForModes();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1386,7 +2167,7 @@ function extraNaflPts(){
 }
 
 function calcSalahScore(){
-  if(isHaydMode) return 0;
+  if(isHaydMode || !isSectionEnabled('salah')) return 0;
   let s = 0;
   for(let i=0;i<5;i++){
     const el=document.getElementById('salah-'+i);
@@ -1402,15 +2183,18 @@ function calcSalahScore(){
 }
 
 function calcGazeScore(){
+  if(!isSectionEnabled('gaze')) return 0;
   const m={nottracked:0,success:10,compromised:-5,relapse:-10};
   return m[gazeVal]||0;
 }
 
 function calcMusicScore(){
+  if(!isSectionEnabled('music')) return 0;
   return document.getElementById('music-free')?.checked ? 10 : 0;
 }
 
 function calcDhikrScore(){
+  if(!isSectionEnabled('dhikr')) return 0;
   // +0.5 pt per 50 counts per item (count / 100, no floor — allows decimals)
   let s = 0;
   dhikrItems.forEach(item => {
@@ -1421,6 +2205,7 @@ function calcDhikrScore(){
 }
 
 function calcQuranScore(){
+  if(!isSectionEnabled('quran')) return 0;
   // In Hayd mode Quran is bonus — still adds points but not to max
   let s=0;
   if(document.getElementById('quran-read')?.checked) s+=10;
@@ -1431,30 +2216,35 @@ function calcQuranScore(){
 }
 
 function calcFastScore(){
-  if(isHaydMode) return 0;
+  if(isHaydMode || !isSectionEnabled('fast')) return 0;
   return document.getElementById('fast-done')?.checked ? 20 : 0;
 }
 
 function calcHabitsScore(){
+  if(!isSectionEnabled('habits')) return 0;
   return habits.filter(h=>h.done).length * 10;
 }
 
+function calcCustomSectionsScore(){return sectionConfig.custom.reduce((sum,s)=>{if(!isSectionEnabled(s.id))return sum;const st=customSectionState[s.id]||{};return sum+s.tasks.reduce((a,t)=>a+(st[t.id]?Number(t.points)||0:0),0);},0);}
+function calcCustomSectionsMax(){return sectionConfig.custom.reduce((sum,s)=>isSectionEnabled(s.id)?sum+s.tasks.reduce((a,t)=>a+(Number(t.points)||0),0):sum,0);}
+function getCustomSectionSnapshot(){const out={};sectionConfig.custom.forEach(s=>{const st=customSectionState[s.id]||{};out[s.id]={name:s.name,tasks:s.tasks.map(t=>({id:t.id,name:t.name,points:Number(t.points)||0,done:!!st[t.id]}))};});return out;}
+
 function calcMaxScore(){
   // In Hayd mode: salah and fast are 0 — ALL Quran tasks are bonus (not in max)
-  const salahMax = isHaydMode ? 0 : (IS_FRIDAY ? (20+4*3+4+extraNaflPts()) : (5*3+4+extraNaflPts()));
-  const gazeMax  = 10;
-  const musicMax = 10;
-  const dhikrMax = calcDhikrScore(); // dynamic — no fixed cap
+  const salahMax = !isSectionEnabled('salah') || isHaydMode ? 0 : (IS_FRIDAY ? (20+4*3+4+extraNaflPts()) : (5*3+4+extraNaflPts()));
+  const gazeMax  = isSectionEnabled('gaze') ? 10 : 0;
+  const musicMax = isSectionEnabled('music') ? 10 : 0;
+  const dhikrMax = isSectionEnabled('dhikr') ? calcDhikrScore() : 0; // dynamic — no fixed cap
   // In hayd mode: ALL quran tasks become bonus, excluded from max
-  // Normal quran max: daily(10) + 1page(5) + kahf on Thu/Fri(20) + nightly(2)
-  const quranMax = isHaydMode ? 0 : (10+5+(IS_KAHF_DAY?20:0)+2);
+  // Normal Quran max: daily(10) + 1page(5) + nightly(2); Kahf is bonus
+  const quranMax = !isSectionEnabled('quran') || isHaydMode ? 0 : (10+5+2); // Surah Kahf is a weekly bonus
   // Voluntary Fast is BONUS — NOT included in max score
-  const habitsMax= habits.length * 10;
-  return salahMax + gazeMax + musicMax + dhikrMax + quranMax + habitsMax;
+  const habitsMax= isSectionEnabled('habits') ? habits.length * 10 : 0;
+  return salahMax + gazeMax + musicMax + dhikrMax + quranMax + habitsMax + calcCustomSectionsMax();
 }
 
 function calcTotalScore(){
-  return calcSalahScore()+calcGazeScore()+calcMusicScore()+calcDhikrScore()+calcQuranScore()+calcFastScore()+calcHabitsScore();
+  return calcSalahScore()+calcGazeScore()+calcMusicScore()+calcDhikrScore()+calcQuranScore()+calcFastScore()+calcHabitsScore()+calcCustomSectionsScore();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1468,7 +2258,8 @@ function updateScore(){
   const quran  = calcQuranScore();
   const fast   = calcFastScore();
   const habPts = calcHabitsScore();
-  const total  = salah+gaze+music+dhikr+quran+fast+habPts;
+  const customPts = calcCustomSectionsScore();
+  const total  = salah+gaze+music+dhikr+quran+fast+habPts+customPts;
   const maxPts = calcMaxScore();
 
   // Ring
@@ -1518,6 +2309,7 @@ function updateScore(){
   document.getElementById('bd-quran').textContent  = quran;
   document.getElementById('bd-fast').textContent   = fast;
   document.getElementById('bd-habits').textContent = habPts;
+  renderCustomBreakdown();
 
   // Gaze badge colour
   const gazeBadge = document.getElementById('gaze-pts-badge');
@@ -1528,7 +2320,7 @@ function updateScore(){
   if(pct>=1) triggerConfetti();
 
   // Hook cloud sync readiness (Feature 7)
-  _onScoreUpdated({ total, maxPts, pct, salah, gaze, music, dhikr, quran, fast, habPts });
+  _onScoreUpdated({ total, maxPts, pct, salah, gaze, music, dhikr, quran, fast, habPts, customPts });
 }
 
 // Feature 7 — hook for Firebase/Supabase injection (noop by default)
@@ -1617,6 +2409,7 @@ function _origResetAll(){
   document.getElementById('music-banner').classList.remove('visible');
   // Reset dynamic dhikr items
   dhikrItems=[];dhikrIdCounter=0;renderDhikrItems();
+  customSectionState={};sectionConfig.custom.forEach(s=>customSectionState[s.id]={});sectionConfig.custom.forEach(renderCustomSectionTasks);
   document.getElementById('quran-read').checked=false;
   document.getElementById('quran-onepage').checked=false;
   const qk=document.getElementById('quran-kahf');if(qk)qk.checked=false;
@@ -1669,6 +2462,7 @@ function _origSaveDay(){
     trigger:  gazeVal==='relapse' ? document.getElementById('trigger-text')?.value : '',
     musicFree:!!document.getElementById('music-free')?.checked,
     dhikrData,
+    customSectionData:getCustomSectionSnapshot(),
     quran:{
       done:    !!document.getElementById('quran-read')?.checked,
       onepage: !!document.getElementById('quran-onepage')?.checked,
@@ -1702,14 +2496,9 @@ function _origSaveDay(){
   setTimeout(()=>{btn.textContent="💾 Save Today's Spiritual Progress"; btn.style.background='';},2500);
 }
 
-// Feature 7 — cloud sync hook (noop by default; inject Firebase push here)
+// Cloud sync hook — local save always succeeds first; cloud is opt-in.
 function _onDaySaved(dateKey, payload){
-  // Future: if(cloudSyncEnabled && currentUser){ db.collection('users').doc(currentUser.uid).collection('days').doc(dateKey).set(payload); }
-}
-
-// Feature 7 — Cloud sync UI handler
-function handleCloudSync(){
-  alert("☁️ Cloud Sync coming soon!\n\nTo enable Firebase sync, inject your Firebase config and replace the _onDaySaved() hook in the source code. Your data is safely stored locally in the meantime.");
+  if(currentSupabaseUser && cloudSyncEnabled) syncNow();
 }
 
 // Feature 5 — Toggle SOS button visibility
@@ -1717,12 +2506,52 @@ function toggleSOSVisibility(){
   const show = document.getElementById('sos-visible-toggle')?.checked;
   const fab  = document.getElementById('sos-fab');
   if(fab) fab.style.display = show ? 'flex' : 'none';
+  if(currentSupabaseUser&&cloudSyncEnabled)_savePreferencesToCloud().catch(console.error);
 }
 function toggleDownVisibility(){
   const show = document.getElementById('down-visible-toggle')?.checked;
   const fab  = document.getElementById('down-fab');
   if(fab) fab.style.display = show ? 'flex' : 'none';
+  if(currentSupabaseUser&&cloudSyncEnabled)_savePreferencesToCloud().catch(console.error);
 }
+
+// ═══════════════════════════════════════════════════
+//  CUSTOM / CONFIGURABLE DAILY SECTIONS
+// ═══════════════════════════════════════════════════
+function renderCustomSectionSlides(){const track=document.getElementById('daily-section-track');if(!track)return;track.querySelectorAll('.custom-section-slide').forEach(el=>el.remove());sectionConfig.custom.forEach(section=>{const slide=document.createElement('div');slide.className='daily-section-slide custom-section-slide';slide.dataset.sectionKey=section.id;slide.dataset.sectionName=section.name;slide.innerHTML=`<div class="section-card"><div class="section-card-header"><div class="section-icon">${escapeHTML(section.icon||'📝')}</div><div class="section-title-wrap"><div class="section-title">${escapeHTML(section.name)}</div><div class="section-subtitle">${escapeHTML(section.subtitle||'Personal tracker')}</div></div><div class="section-pts-badge" id="custom-pts-${escapeHTML(section.id)}" style="background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.25);color:var(--gold)">0 pts</div></div><div id="custom-tasks-${escapeHTML(section.id)}"></div><div class="custom-section-note">Personal section — customize it anytime from Settings.</div></div>`;track.appendChild(slide);renderCustomSectionTasks(section);});}
+function renderCustomSectionTasks(section){const c=document.getElementById('custom-tasks-'+section.id);if(!c)return;const state=customSectionState[section.id]||{};c.innerHTML=section.tasks.length?section.tasks.map(t=>`<div class="custom-section-task"><label class="cb-wrap"><input class="cb-input" type="checkbox" ${state[t.id]?'checked':''} onchange="toggleCustomTask('${section.id}','${t.id}',this.checked)"><div class="cb-box"></div></label><div class="custom-section-task-name">${escapeHTML(t.name)}</div><div class="custom-section-task-pts">+${Number(t.points)||0} pt${Number(t.points)===1?'':'s'}</div></div>`).join(''):'<div class="custom-section-empty">No tasks yet.</div>';updateCustomSectionBadge(section.id);}
+function updateCustomSectionBadge(id){const sec=getCustomSection(id);if(!sec)return;const state=customSectionState[id]||{};const pts=sec.tasks.reduce((a,t)=>a+(state[t.id]?Number(t.points)||0:0),0);const el=document.getElementById('custom-pts-'+id);if(el)el.textContent=pts+' pts';}
+function toggleCustomTask(sectionId,taskId,checked){if(!customSectionState[sectionId])customSectionState[sectionId]={};customSectionState[sectionId][taskId]=!!checked;updateCustomSectionBadge(sectionId);updateScore();}
+function renderCustomBreakdown(){const c=document.getElementById('custom-breakdown-grid');if(!c)return;c.innerHTML=sectionConfig.custom.filter(s=>isSectionEnabled(s.id)).map(s=>{const st=customSectionState[s.id]||{};const pts=s.tasks.reduce((a,t)=>a+(st[t.id]?Number(t.points)||0:0),0);return `<div class="custom-breakdown-item"><div class="custom-breakdown-name">${escapeHTML(s.icon||'📝')} ${escapeHTML(s.name)}</div><div class="custom-breakdown-val">${pts} pts</div></div>`;}).join('');}
+function renderSectionManager(){const c=document.getElementById('section-manager-list');if(!c)return;const order=getSectionOrder();c.innerHTML=order.map((key,i)=>{const meta=getSectionMeta(key),custom=!!getCustomSection(key);return `<div class="section-manager-item ${isSectionEnabled(key)?'':'disabled'}"><input class="section-toggle" type="checkbox" ${isSectionEnabled(key)?'checked':''} onchange="toggleSectionEnabled('${key}',this.checked)"><div class="section-manager-item-main"><div class="section-manager-icon">${escapeHTML(meta.icon||'📝')}</div><div><div class="section-manager-name">${escapeHTML(meta.name)}</div><div class="section-manager-tag">${custom?'Custom section':'Built-in section'}</div></div></div><div class="section-manager-actions"><button class="section-move-btn" onclick="moveSection('${key}',-1)" ${i===0?'disabled':''}>↑</button><button class="section-move-btn" onclick="moveSection('${key}',1)" ${i===order.length-1?'disabled':''}>↓</button>${custom?`<button class="section-delete-btn" onclick="deleteCustomSection('${key}')">×</button>`:''}</div></div>`;}).join('');}
+function applySectionConfig(){renderCustomSectionSlides();const track=document.getElementById('daily-section-track');if(!track)return;const fallback={0:'salah',1:'gaze',2:'music',3:'dhikr',4:'quran',5:'fast',6:'habits'};const slides=Array.from(track.querySelectorAll('.daily-section-slide'));const map=new Map(slides.map(s=>[s.dataset.sectionKey||fallback[s.dataset.sectionIndex],s]));getSectionOrder().forEach(key=>{const slide=map.get(key);if(slide)track.appendChild(slide);});refreshSwipeForModes();renderSectionManager();saveSectionConfig();updateScore();}
+function toggleSectionEnabled(key,enabled){sectionConfig.enabled[key]=!!enabled;applySectionConfig();}
+function moveSection(key,dir){const order=getSectionOrder(),i=order.indexOf(key),j=i+dir;if(i<0||j<0||j>=order.length)return;[order[i],order[j]]=[order[j],order[i]];sectionConfig.order=order;applySectionConfig();}
+function addCustomSection(){const name=document.getElementById('custom-section-name')?.value.trim(),icon=document.getElementById('custom-section-icon')?.value.trim()||'📝',raw=document.getElementById('custom-section-tasks')?.value||'';if(!name){alert('Please enter a section name.');return;}const tasks=raw.split(/\n+/).map(x=>x.trim()).filter(Boolean).map((line,i)=>{const p=line.split('|'),n=p[0].trim(),pts=p[1]!==undefined?Math.max(0,parseFloat(p[1])||0):1;return{id:'t_'+Date.now()+'_'+i,name:n,points:pts};}).filter(t=>t.name);if(!tasks.length){alert('Add at least one task.');return;}const id='custom_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);sectionConfig.custom.push({id,icon,name,subtitle:'Personal tracker',tasks});sectionConfig.order.push(id);sectionConfig.enabled[id]=true;customSectionState[id]={};document.getElementById('custom-section-name').value='';document.getElementById('custom-section-tasks').value='';applySectionConfig();}
+function deleteCustomSection(id){const sec=getCustomSection(id);if(!sec)return;if(!confirm(`Remove “${sec.name}” from your tracker? Historical saved data will remain in reports.`))return;sectionConfig.custom=sectionConfig.custom.filter(s=>s.id!==id);sectionConfig.order=sectionConfig.order.filter(k=>k!==id);delete sectionConfig.enabled[id];delete customSectionState[id];applySectionConfig();}
+function openSectionManager(){renderSectionManager();document.getElementById('section-manager-overlay')?.classList.add('open');}
+function closeSectionManager(){document.getElementById('section-manager-overlay')?.classList.remove('open');}
+function restoreCustomSectionState(data){customSectionState={};if(data&&typeof data==='object')Object.keys(data).forEach(id=>{customSectionState[id]={};(data[id]?.tasks||[]).forEach(t=>{if(t.done)customSectionState[id][t.id]=true;});});sectionConfig.custom.forEach(s=>{if(!customSectionState[s.id])customSectionState[s.id]={};});sectionConfig.custom.forEach(renderCustomSectionTasks);renderCustomBreakdown();}
+
+// ═══════════════════════════════════════════════════
+//  PHASE 1 — SWIPEABLE DAILY SECTIONS
+// ═══════════════════════════════════════════════════
+const SWIPE_SECTION_NAMES=['Salah Tracker','Lowering of Gaze','Leaving Music','Dhikr, Azkar & Istighfar','Quran & Nightly Sunnah','Voluntary Fast','New Habit Tracker'];
+const SWIPE_POSITION_KEY='spt_swipe_position_v1';
+let _swipeIndex=0,_swipeStartX=0,_swipeStartY=0,_swipeTracking=false,_swipeAnimating=false;
+function getSwipeSlides(){return Array.from(document.querySelectorAll('#daily-section-track .daily-section-slide')).filter(s=>s.style.display!=='none');}
+function saveSwipePosition(){try{localStorage.setItem(SWIPE_POSITION_KEY,JSON.stringify({date:todayKey(),index:_swipeIndex}));}catch(e){}}
+function restoreSwipePosition(){try{const raw=JSON.parse(localStorage.getItem(SWIPE_POSITION_KEY)||'null');if(raw&&raw.date===todayKey()&&Number.isInteger(raw.index))_swipeIndex=Math.max(0,raw.index);}catch(e){}}
+function clearSwipePosition(){try{localStorage.removeItem(SWIPE_POSITION_KEY);}catch(e){}}
+function updateStickyScore(total,maxPts){const ring=document.getElementById('sticky-ring'),num=document.getElementById('sticky-score-number'),pctEl=document.getElementById('sticky-score-pct'),C=2*Math.PI*15,pct=maxPts>0?Math.min(Math.max(total/maxPts,0),1):0;if(ring){ring.style.strokeDashoffset=C-pct*C;ring.style.stroke=total>0?'#f5c842':'#1f2535';}if(num)num.textContent=total;if(pctEl)pctEl.textContent=Math.round(pct*100)+'%';}
+function updateSwipeDots(slides=getSwipeSlides()){const dots=document.getElementById('swipe-dots');if(!dots)return;dots.innerHTML=slides.map((slide,i)=>`<button class="swipe-dot ${i===_swipeIndex?'active':''}" aria-label="Go to ${slide.dataset.sectionName||'section '+(i+1)}" aria-current="${i===_swipeIndex?'true':'false'}" onclick="goToSwipeSection(${i})"></button>`).join('');}
+function updateSwipeViewport(){const viewport=document.getElementById('daily-section-viewport'),track=document.getElementById('daily-section-track');if(!viewport||!track)return;const slides=getSwipeSlides();if(!slides.length)return;if(_swipeIndex>=slides.length)_swipeIndex=slides.length-1;if(_swipeIndex<0)_swipeIndex=0;requestAnimationFrame(()=>{const active=slides[_swipeIndex];viewport.style.height=active.offsetHeight+'px';track.style.transform=`translate3d(${-_swipeIndex*100}%,0,0)`;});updateSwipeDots(slides);const title=document.getElementById('sticky-section-title'),sub=document.getElementById('sticky-section-sub');if(title)title.textContent=slides[_swipeIndex].dataset.sectionName||SWIPE_SECTION_NAMES[_swipeIndex];if(sub)sub.textContent=`Section ${_swipeIndex+1} of ${slides.length} • Swipe to continue`;saveSwipePosition();}
+function goToSwipeSection(index){const slides=getSwipeSlides();if(!slides.length)return;_swipeIndex=Math.max(0,Math.min(index,slides.length-1));updateSwipeViewport();}
+function moveSwipeSection(direction){const slides=getSwipeSlides();if(!slides.length||_swipeAnimating)return;const next=_swipeIndex+direction;if(next<0||next>=slides.length)return;_swipeAnimating=true;_swipeIndex=next;updateSwipeViewport();setTimeout(()=>_swipeAnimating=false,380);}
+function initSwipeNavigation(){const viewport=document.getElementById('daily-section-viewport');if(!viewport)return;restoreSwipePosition();viewport.addEventListener('touchstart',e=>{if(e.touches.length!==1)return;if(e.target.closest('input,select,textarea,button,a,[contenteditable="true"]'))return;_swipeStartX=e.touches[0].clientX;_swipeStartY=e.touches[0].clientY;_swipeTracking=true;},{passive:true});viewport.addEventListener('touchend',e=>{if(!_swipeTracking||!e.changedTouches.length)return;_swipeTracking=false;const dx=e.changedTouches[0].clientX-_swipeStartX,dy=e.changedTouches[0].clientY-_swipeStartY;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.2)return;moveSwipeSection(dx<0?1:-1);},{passive:true});window.addEventListener('resize',()=>{if(document.getElementById('tab-daily')?.style.display!=='none')updateSwipeViewport();});updateSwipeViewport();}
+function initStickyScoreVisibility(){const hero=document.querySelector('#tab-daily .score-section'),bar=document.getElementById('sticky-score-bar');if(!hero||!bar)return;const sync=visible=>bar.classList.toggle('is-visible',!visible&&document.getElementById('tab-daily')?.style.display!=='none');if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{sync(entries[0].isIntersecting);},{threshold:0.05,rootMargin:'-8px 0px 0px 0px'});observer.observe(hero);}else{const onScroll=()=>sync(hero.getBoundingClientRect().bottom<=8);window.addEventListener('scroll',onScroll,{passive:true});onScroll();}}
+function refreshSwipeForModes(){document.querySelectorAll('#daily-section-track .daily-section-slide').forEach(slide=>{const key=slide.dataset.sectionKey;const exempt=slide.querySelector('.hayd-exempt');const hidden=!isSectionEnabled(key)||(exempt&&isHaydMode);slide.classList.toggle('is-hidden',!!hidden);slide.style.display=hidden?'none':'block';});const visible=getSwipeSlides();if(_swipeIndex>=visible.length)_swipeIndex=Math.max(0,visible.length-1);updateSwipeViewport();}
+const _phase1UpdateScore=updateScore;updateScore=function(){_phase1UpdateScore();updateStickyScore(calcTotalScore(),calcMaxScore());};
 
 // ═══════════════════════════════════════════════════
 //  TAB SWITCH
@@ -1745,184 +2574,181 @@ function switchTab(tab){
 let _lineChart = null;
 let _pieChart  = null;
 
+function _analyticsSectionData(valid,history){
+  const builtins=SECTION_TRACKERS.map(s=>{
+    const avg=valid.length?valid.reduce((a,k)=>a+(Number(history[k][s.key+'Score'])||0),0)/valid.length:0;
+    const engaged=valid.filter(k=>(Number(history[k][s.key+'Score'])||0)>0).length;
+    return {key:s.key,icon:s.icon,name:s.name,avg,engaged,custom:false};
+  });
+  const customMap={};
+  valid.forEach(k=>{
+    const saved=history[k].customSectionData||{};
+    Object.keys(saved).forEach(id=>{
+      const sec=saved[id]||{};
+      if(!customMap[id]) customMap[id]={key:id,icon:'📝',name:sec.name||'Custom Section',avg:0,engaged:0,custom:true};
+      let pts=0;
+      (sec.tasks||[]).forEach(t=>{if(t.done)pts+=Number(t.points)||0;});
+      customMap[id].avg+=pts;
+      if(pts>0)customMap[id].engaged++;
+    });
+  });
+  Object.values(customMap).forEach(x=>x.avg/=Math.max(valid.length,1));
+  return [...builtins,...Object.values(customMap)];
+}
+
+function _analyticsInsightHTML({totalDays,periodDays,avgPct,recentPct,priorPct,strongest,focus,gazeRelapses,quranDays,dhikrComplete,musicFreeDays,salahAvg}={}){
+  const delta=priorPct===null||priorPct===undefined?null:Math.round(recentPct-priorPct);
+  const trend=delta===null
+    ? `You have ${totalDays} saved day${totalDays===1?'':'s'} in this period. A little more history will make the trend picture more meaningful.`
+    : delta>3
+      ? `Your recent performance is moving upward by about ${delta} percentage points compared with the preceding logged period.`
+      : delta<-3
+        ? `Your recent performance is down about ${Math.abs(delta)} percentage points. Treat the change as information, not a verdict.`
+        : `Your recent performance is broadly steady. The main opportunity is to protect consistency rather than add more goals.`;
+  const focusText=focus
+    ? `${focus.name} currently contributes the least average points among your tracked core areas (${Math.round(focus.avg*10)/10} pts/day).`
+    : 'There is no clear low-contribution area to call out yet.';
+  const quranText=`Qur’an was logged on ${quranDays} of ${totalDays} day${totalDays===1?'':'s'}.`;
+  const dhikrText=`Dhikr reached the current complete-day threshold on ${dhikrComplete} day${dhikrComplete===1?'':'s'}.`;
+  const salahText=`Salah averaged ${salahAvg} pts/day.`;
+  const gazeText=gazeRelapses
+    ? `${gazeRelapses} gaze relapse day${gazeRelapses===1?'':'s'} recorded — review the trigger log and choose one practical safeguard.`
+    : 'No gaze relapse days are recorded in this period.';
+  return `<div class="analytics-insight">
+    <div class="analytics-insight-head"><div class="analytics-insight-title">🧭 What your recent data suggests</div><div class="analytics-insight-badge">${Math.round(recentPct)}% recent</div></div>
+    <div class="analytics-insight-lead">${trend}</div>
+    <div class="analytics-insight-grid">
+      <div class="insight-mini"><span>🏆 Strongest</span><strong>${escapeHTML(strongest?.name||'—')}</strong><small>${Math.round(strongest?.avg*10||0)/10} pts/day</small></div>
+      <div class="insight-mini"><span>🎯 Focus</span><strong>${escapeHTML(focus?.name||'—')}</strong><small>${Math.round(focus?.avg*10||0)/10} pts/day</small></div>
+      <div class="insight-mini"><span>🕌 Foundation</span><strong>${salahAvg} pts/day</strong><small>${salahText.replace('Salah averaged ','').replace('.','')} average</small></div>
+      <div class="insight-mini"><span>📖 Qur’an</span><strong>${quranDays}/${totalDays} days</strong><small>${dhikrText}</small></div>
+    </div>
+    <ul class="analytics-insight-list">
+      <li>${focusText}</li>
+      <li>${gazeText}</li>
+      <li>${quranText} ${dhikrText}</li>
+    </ul>
+  </div>`;
+}
+
 function buildAnalytics(days, history){
-  const valid    = days.filter(k=>history[k]);
+  const valid=days.filter(k=>history[k]);
   if(!valid.length) return `<div class="no-data"><div class="no-data-icon">📭</div><div>No saved data yet.<br>Complete days and tap <strong style="color:var(--gold)">Save</strong> to build your history!</div></div>`;
 
-  const scores   = valid.map(k=>history[k].score);
-  const maxScores= valid.map(k=>history[k].maxScore||100);
-  const avgScore = Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
-  const bestScore= Math.max(...scores);
-  const totalDays= valid.length;
-  const perfectDays=valid.filter((k,i)=>scores[i]>=(maxScores[i]*0.75)).length;
+  const scores=valid.map(k=>Number(history[k].score)||0);
+  const maxScores=valid.map(k=>Number(history[k].maxScore)||100);
+  const avgScore=Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
+  const bestScore=Math.max(...scores);
+  const totalDays=valid.length;
+  const periodDays=days.length;
+  const perfectDays=valid.filter((k,i)=>scores[i]>=(maxScores[i]*.75)).length;
+  const avgPct=maxScores.reduce((a,m,i)=>a+(m>0?Math.min(scores[i]/m*100,100):0),0)/scores.length;
+  const recentKeys=valid.slice(-7);
+  const priorKeys=valid.slice(-14,-7);
+  const recentPct=recentKeys.length?recentKeys.reduce((a,k)=>{const d=history[k],m=Number(d.maxScore)||0;return a+(m>0?(Number(d.score)||0)/m*100:0)},0)/recentKeys.length:avgPct;
+  const priorPct=priorKeys.length?priorKeys.reduce((a,k)=>{const d=history[k],m=Number(d.maxScore)||0;return a+(m>0?(Number(d.score)||0)/m*100:0)},0)/priorKeys.length:null;
 
-  const salahAvg     = Math.round(valid.reduce((a,k)=>a+(history[k].salahScore||0),0)/totalDays);
-  const gazeWins     = valid.filter(k=>history[k].gaze==='success').length;
-  const gazeRelapses = valid.filter(k=>history[k].gaze==='relapse').length;
-  const musicFreeDays= valid.filter(k=>history[k].musicFree).length;
-  const dhikrComplete= valid.filter(k=>(history[k].dhikrScore||0)>=15).length;
-  const quranDays    = valid.filter(k=>history[k].quran?.done).length;
-  const fastDays     = valid.filter(k=>history[k].fast).length;
-  const kahfDays     = valid.filter(k=>history[k].quran?.kahf).length;
-  const nightlyDays  = valid.filter(k=>history[k].quran?.nightly).length;
-  const totalHabitMins=valid.reduce((a,k)=>a+(history[k].habitsMins||0),0);
-  const totalAzkar   = valid.reduce((a,k)=>a+(parseInt(history[k].dhikrData?.azkar?.count)||0),0);
-  const totalIstighfar=valid.reduce((a,k)=>a+(parseInt(history[k].dhikrData?.istighfar?.count)||0),0);
-  const totalDurood  = valid.reduce((a,k)=>a+(parseInt(history[k].dhikrData?.durood?.count)||0),0);
+  const salahAvg=Math.round(valid.reduce((a,k)=>a+(Number(history[k].salahScore)||0),0)/totalDays);
+  const gazeWins=valid.filter(k=>history[k].gaze==='success').length;
+  const gazeRelapses=valid.filter(k=>history[k].gaze==='relapse').length;
+  const musicFreeDays=valid.filter(k=>!!history[k].musicFree).length;
+  const dhikrComplete=valid.filter(k=>(Number(history[k].dhikrScore)||0)>=15).length;
+  const quranDays=valid.filter(k=>history[k].quran?.done).length;
+  const fastDays=valid.filter(k=>!!history[k].fast).length;
+  const kahfDays=valid.filter(k=>!!history[k].quran?.kahf).length;
+  const nightlyDays=valid.filter(k=>!!history[k].quran?.nightly).length;
+  const totalHabitMins=valid.reduce((a,k)=>a+(Number(history[k].habitsMins)||0),0);
+  const dhikrTotals=valid.reduce((acc,k)=>{const d=history[k].dhikrData;if(Array.isArray(d))d.forEach(item=>{const n=String(item.name||'').toLowerCase(),c=parseInt(item.count)||0;if(/astagh|istighfar/.test(n))acc.istighfar+=c;else if(/durood|salawat|sallallahu|muhammad/.test(n))acc.durood+=c;else acc.azkar+=c;});else if(d&&typeof d==='object'){acc.azkar+=parseInt(d.azkar?.count)||0;acc.istighfar+=parseInt(d.istighfar?.count)||0;acc.durood+=parseInt(d.durood?.count)||0;}return acc;},{azkar:0,istighfar:0,durood:0});
   const totalQuranMins=valid.reduce((a,k)=>a+(parseInt(history[k].quran?.mins)||0),0);
   const totalQuranPages=valid.reduce((a,k)=>a+(parseInt(history[k].quran?.pages)||0),0);
+  const totalAzkar=dhikrTotals.azkar;
+  const totalIstighfar=dhikrTotals.istighfar;
+  const totalDurood=dhikrTotals.durood;
 
-  // Legacy bar chart (keeps compact view)
-  const chartDays = days.slice(-14);
-  const bars = chartDays.map(k=>{
+  const sectionData=_analyticsSectionData(valid,history);
+  const core=sectionData.filter(s=>s.key!=='fast' && !(s.key==='habits' && s.avg===0));
+  const strongest=core.slice().sort((a,b)=>b.avg-a.avg)[0]||sectionData.slice().sort((a,b)=>b.avg-a.avg)[0];
+  const focus=core.filter(s=>s.avg>0 || s.engaged>0).slice().sort((a,b)=>a.avg-b.avg)[0]||null;
+  const totalAvgPoints=sectionData.reduce((a,s)=>a+s.avg,0);
+  const breakdownRows=sectionData.filter(s=>s.avg>0||s.engaged>0);
+  const maxAvg=Math.max(...breakdownRows.map(s=>s.avg),1);
+  const breakdownHTML=breakdownRows.map(s=>{
+    const share=totalAvgPoints>0?(s.avg/totalAvgPoints*100):0;
+    const width=Math.max(0,Math.min(100,s.avg/maxAvg*100));
+    return `<div class="contribution-row"><div class="contribution-icon">${s.icon}</div><div class="contribution-main"><div class="contribution-top"><span>${escapeHTML(s.name)}</span><strong>${Math.round(s.avg*10)/10} pts/day</strong></div><div class="contribution-track"><div class="contribution-fill" style="width:${width}%"></div></div><div class="contribution-meta"><span>${s.engaged}/${totalDays} active days</span><span>${Math.round(share)}% of avg tracked points</span></div></div></div>`;
+  }).join('');
+
+  const chartDays=days.slice(-14);
+  const lineLabels=chartDays.map(k=>k.slice(5).replace('-','/'));
+  const lineData=chartDays.map(k=>{const d=history[k];return d&&d.maxScore>0?Math.round(d.score/d.maxScore*100):null;});
+  const uid='chart_'+Date.now();
+  const lineId=uid+'_line';
+  const pieId=uid+'_pie';
+  const pieLabels=breakdownRows.map(s=>s.name);
+  const pieData=breakdownRows.map(s=>Math.round(s.avg*10)/10);
+  const pieColors=['#f5c842','#d7b84a','#4fc3f7','#6fcf97','#b39ddb','#7fb7d6','#c9b36a','#8f8f8f'];
+
+  // A compact calendar-like rhythm map is more useful than decorative daily bars.
+  const rhythm=days.map(k=>{
     const d=history[k];
-    const pct=d&&d.maxScore>0?Math.min(d.score/d.maxScore*100,100):0;
-    const lbl=k?k.slice(5):'';
-    const col=!d?'#1f2535':pct>=75?'#f5c842':pct>=50?'#3ddc84':pct>=30?'#ffb347':'#b39ddb';
-    return `<div class="bar-col"><div class="bar-fill" style="height:${pct}%;background:${col};min-height:${d?4:0}px" title="${d?d.score+' pts':'No data'}"></div><div class="bar-label">${lbl.replace('-','/')}</div></div>`;
+    const dateObj=new Date(k+'T12:00:00');
+    const dayLabel=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dateObj.getDay()];
+    const dateLabel=dateObj.getDate();
+    if(!d) return `<div class="rhythm-cell empty"><span>${dayLabel}</span><strong>${dateLabel}</strong><small>—</small></div>`;
+    const pct=d.maxScore>0?Math.round(d.score/d.maxScore*100):0;
+    const cls=pct>=75?'excellent':pct>=50?'steady':pct>0?'started':'zero';
+    return `<div class="rhythm-cell ${cls}" title="${escapeHTML(k)} — ${d.score} / ${d.maxScore} pts"><span>${dayLabel}</span><strong>${dateLabel}</strong><small>${pct}%</small></div>`;
   }).join('');
 
-  // Section breakdown bars
-  const sectionMaxMap={salah:IS_FRIDAY?39:19,gaze:10,music:10,dhikr:15,quran:37,fast:20,habits:30};
-  const sections = SECTION_TRACKERS.map(s=>{
-    const key  = s.key+'Score';
-    const avg  = Math.round(valid.reduce((a,k)=>a+(history[k][key]||0),0)/totalDays);
-    const maxVal = sectionMaxMap[s.key]||30;
-    const pct  = Math.min(Math.round(avg/maxVal*100),100);
-    return `<div class="breakdown-row"><div class="breakdown-icon">${s.icon}</div><div class="breakdown-info"><div class="breakdown-name">${s.name}</div></div><div class="breakdown-bar-wrap"><div class="breakdown-bar-fill" style="width:${pct}%;background:${s.color}"></div></div><div class="breakdown-pct">${pct}%</div></div>`;
-  }).join('');
+  const triggers=valid.filter(k=>history[k].trigger&&String(history[k].trigger).trim()).slice(-10).reverse();
+  const triggersHTML=triggers.length?`<div class="triggers-log"><div class="chart-title" style="color:#ff6b6b">⚡ Relapse Triggers Log</div>${triggers.map(k=>`<div class="trigger-entry"><div class="trigger-entry-date">${k}</div><div class="trigger-entry-text">${escapeHTML(history[k].trigger)}</div></div>`).join('')}</div>`:'';
 
-  // Triggers log
-  const triggers = valid.filter(k=>history[k].trigger&&history[k].trigger.trim()).slice(-10).reverse();
-  const triggersHTML = triggers.length ? `
-    <div class="triggers-log">
-      <div class="chart-title" style="color:#ff6b6b">⚡ Relapse Triggers Log</div>
-      ${triggers.map(k=>`<div class="trigger-entry"><div class="trigger-entry-date">${k}</div><div class="trigger-entry-text">${history[k].trigger}</div></div>`).join('')}
-    </div>` : '';
-
-  // Unique IDs for Chart.js canvases (avoid conflicts between week/month)
-  const uid = 'chart_'+Date.now();
-  const lineId= uid+'_line';
-  const pieId = uid+'_pie';
-
-  // Build datasets for Chart.js — up to last 14 days shown
-  const lineLabels= chartDays.map(k=>k.slice(5).replace('-','/'));
-  const lineData  = chartDays.map(k=>{ const d=history[k]; return d&&d.maxScore>0?Math.round(d.score/d.maxScore*100):null; });
-
-  const pieLabels = ['Salah','Gaze','Music','Dhikr','Quran','Fast','Habits'];
-  const pieData   = SECTION_TRACKERS.map(s=>Math.round(valid.reduce((a,k)=>a+(history[k][s.key+'Score']||0),0)/totalDays));
-  const pieColors = ['#f5c842','#3ddc84','#e879f9','#b39ddb','#4fc3f7','#26c6da','#a8edca'];
-
-  // Defer Chart.js render after HTML is injected
   setTimeout(()=>{
-    // Destroy existing charts if any
-    if(_lineChart){ try{ _lineChart.destroy(); }catch(e){} }
-    if(_pieChart) { try{ _pieChart.destroy();  }catch(e){} }
+    if(_lineChart){try{_lineChart.destroy();}catch(e){}}
+    if(_pieChart){try{_pieChart.destroy();}catch(e){}}
+    const lineCtx=document.getElementById(lineId),pieCtx=document.getElementById(pieId);
+    Chart.defaults.color='#7b8190';Chart.defaults.borderColor='#242936';
+    if(lineCtx){_lineChart=new Chart(lineCtx,{type:'line',data:{labels:lineLabels,datasets:[{label:'Score %',data:lineData,borderColor:'#f5c842',backgroundColor:'rgba(245,200,66,.10)',tension:.35,fill:true,pointBackgroundColor:'#f5c842',pointBorderColor:'#161a22',pointBorderWidth:2,pointRadius:4,pointHoverRadius:6,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}% of daily max`}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'#242936'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});}
+    if(pieCtx){_pieChart=new Chart(pieCtx,{type:'doughnut',data:{labels:pieLabels,datasets:[{data:pieData,backgroundColor:pieColors.slice(0,pieData.length),borderColor:'#161a22',borderWidth:3,hoverOffset:5}]},options:{responsive:true,cutout:'62%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} pts/day`}}}}});}
+  },80);
 
-    const lineCtx = document.getElementById(lineId);
-    const pieCtx  = document.getElementById(pieId);
-
-    Chart.defaults.color = '#6b7280';
-    Chart.defaults.borderColor = '#1f2535';
-
-    if(lineCtx){
-      _lineChart = new Chart(lineCtx, {
-        type:'line',
-        data:{
-          labels: lineLabels,
-          datasets:[{
-            label:'Score %',
-            data: lineData,
-            borderColor:'#f5c842',
-            backgroundColor:'rgba(245,200,66,.12)',
-            tension:.4,
-            fill:true,
-            pointBackgroundColor:'#f5c842',
-            pointRadius:4,
-            pointHoverRadius:6,
-            spanGaps:true,
-          }]
-        },
-        options:{
-          responsive:true,
-          plugins:{
-            legend:{display:false},
-            tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}% of daily max`}}
-          },
-          scales:{
-            y:{ min:0, max:100, ticks:{callback:v=>v+'%'}, grid:{color:'#1f2535'} },
-            x:{ grid:{color:'#1f2535'} }
-          }
-        }
-      });
-    }
-
-    if(pieCtx){
-      _pieChart = new Chart(pieCtx, {
-        type:'doughnut',
-        data:{
-          labels: pieLabels,
-          datasets:[{
-            data: pieData,
-            backgroundColor: pieColors,
-            borderColor:'#161a22',
-            borderWidth:2,
-            hoverOffset:6,
-          }]
-        },
-        options:{
-          responsive:true,
-          plugins:{
-            legend:{ position:'bottom', labels:{ color:'#6b7280', font:{size:10}, padding:10 } },
-            tooltip:{ callbacks:{ label:ctx=>`${ctx.label}: avg ${ctx.parsed} pts/day` } }
-          },
-          cutout:'55%',
-        }
-      });
-    }
-  }, 80);
-
-  return `
-  <div class="stats-grid">
+  return `<div class="stats-grid">
     <div class="stat-card"><div class="stat-value">${avgScore}</div><div class="stat-label">Avg Daily Score</div></div>
     <div class="stat-card"><div class="stat-value">${bestScore}</div><div class="stat-label">Best Day Score</div></div>
-    <div class="stat-card"><div class="stat-value">${perfectDays}</div><div class="stat-label">🌟 Excellent Days (≥75%)</div></div>
-    <div class="stat-card"><div class="stat-value">${gazeWins}</div><div class="stat-label">👁️ Gaze Success Days</div></div>
+    <div class="stat-card"><div class="stat-value">${perfectDays}</div><div class="stat-label">🌟 Excellent Days</div></div>
+    <div class="stat-card"><div class="stat-value">${totalDays}<span style="font-size:12px;color:var(--muted)">/${periodDays}</span></div><div class="stat-label">Days Logged</div></div>
   </div>
-
-  <div class="chartjs-card">
-    <div class="chart-title">📈 Score % — Last ${chartDays.length} Days</div>
+  ${_analyticsInsightHTML({totalDays,periodDays,avgPct,recentPct,priorPct,strongest,focus,gazeRelapses,quranDays,dhikrComplete,musicFreeDays,salahAvg})}
+  <div class="chartjs-card trend-card">
+    <div class="chart-title">📈 Spiritual Rhythm — Score %</div>
+    <div class="chart-subline">Your score as a percentage of that day’s available points. Empty days are left blank.</div>
     <canvas id="${lineId}"></canvas>
   </div>
-
-  <div class="chartjs-card">
-    <div class="chart-title">🥧 Points Breakdown (Avg/Day)</div>
-    <canvas id="${pieId}"></canvas>
+  <div class="chartjs-card breakdown-card">
+    <div class="chart-title">🧭 Where Your Points Come From</div>
+    <div class="chart-subline">Average contribution per logged day — quantities are shown directly below, so nothing depends on hovering the chart.</div>
+    <div class="breakdown-visual"><div class="donut-wrap"><canvas id="${pieId}"></canvas><div class="donut-center"><strong>${Math.round(totalAvgPoints*10)/10}</strong><span>avg pts/day</span></div></div><div class="contribution-list">${breakdownHTML||'<div class="no-data" style="padding:15px">No section points recorded yet.</div>'}</div></div>
   </div>
-
-  <div class="progress-chart"><div class="chart-title">📊 Daily Score Bars</div><div class="bar-chart">${bars}</div></div>
-
-  <div class="task-breakdown"><div class="chart-title">📊 Section Performance</div>${sections}</div>
-
+  <div class="rhythm-card">
+    <div class="chart-title">🗓️ Consistency Map</div>
+    <div class="chart-subline">A quick visual of your rhythm across the ${periodDays}-day period — stronger days glow brighter.</div>
+    <div class="rhythm-legend"><span><i class="legend-dot excellent"></i>75%+</span><span><i class="legend-dot steady"></i>50–74%</span><span><i class="legend-dot started"></i>1–49%</span><span><i class="legend-dot empty"></i>No entry</span></div>
+    <div class="rhythm-grid ${periodDays>14?'monthly':''}">${rhythm}</div>
+  </div>
+  <div class="task-breakdown"><div class="chart-title">📊 Section Performance</div>${sectionData.filter(s=>s.avg>0||s.engaged>0).map(s=>{const pct=totalAvgPoints>0?Math.round(s.avg/totalAvgPoints*100):0;return `<div class="breakdown-row"><div class="breakdown-icon">${s.icon}</div><div class="breakdown-info"><div class="breakdown-name">${escapeHTML(s.name)}</div><div class="breakdown-meta">${Math.round(s.avg*10)/10} pts/day • ${s.engaged}/${totalDays} active days</div></div><div class="breakdown-bar-wrap"><div class="breakdown-bar-fill" style="width:${Math.max(0,pct)}%;background:var(--gold)"></div></div><div class="breakdown-pct">${pct}%</div></div>`;}).join('')}</div>
   <div class="hours-report">
     <div class="chart-title">🕌 Spiritual Stats</div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Days Logged</span><span class="hours-stat-val">${totalDays} / ${days.length}</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Avg Salah Score / Day</span><span class="hours-stat-val">${salahAvg} pts</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Music-Free Days</span><span class="hours-stat-val" style="color:var(--music)">${musicFreeDays} days</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Dhikr Complete Days</span><span class="hours-stat-val">${dhikrComplete} days</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Quran Reading Days</span><span class="hours-stat-val">${quranDays} days</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Total Quran Mins</span><span class="hours-stat-val">${totalQuranMins} mins</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Total Quran Pages</span><span class="hours-stat-val">${totalQuranPages} pages</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Surah Kahf Read</span><span class="hours-stat-val">${kahfDays} times</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Nightly Sunnah Days</span><span class="hours-stat-val">${nightlyDays} days</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Voluntary Fast Days</span><span class="hours-stat-val">${fastDays} days</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Gaze Relapses</span><span class="hours-stat-val" style="color:#ff6b6b">${gazeRelapses} days</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Total Habit Mins</span><span class="hours-stat-val">${totalHabitMins} mins</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Total Azkar Count</span><span class="hours-stat-val">${totalAzkar}</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Total Istighfar Count</span><span class="hours-stat-val">${totalIstighfar}</span></div>
-    <div class="hours-stat-row"><span class="hours-stat-label">Total Durood Count</span><span class="hours-stat-val">${totalDurood}</span></div>
+    <div class="stats-stat-grid">
+      <div class="stats-stat"><span>Avg Salah / Day</span><strong>${salahAvg} pts</strong></div><div class="stats-stat"><span>Gaze Success</span><strong>${gazeWins} days</strong></div>
+      <div class="stats-stat"><span>Music-Free</span><strong>${musicFreeDays} days</strong></div><div class="stats-stat"><span>Dhikr Complete</span><strong>${dhikrComplete} days</strong></div>
+      <div class="stats-stat"><span>Qur’an Reading</span><strong>${quranDays} days</strong></div><div class="stats-stat"><span>Qur’an Time</span><strong>${totalQuranMins} mins</strong></div>
+      <div class="stats-stat"><span>Qur’an Pages</span><strong>${totalQuranPages}</strong></div><div class="stats-stat"><span>Surah Kahf</span><strong>${kahfDays} times</strong></div>
+      <div class="stats-stat"><span>Nightly Sunnah</span><strong>${nightlyDays} days</strong></div><div class="stats-stat"><span>Voluntary Fast</span><strong>${fastDays} days</strong></div>
+      <div class="stats-stat"><span>Gaze Relapses</span><strong class="danger">${gazeRelapses} days</strong></div><div class="stats-stat"><span>Habit Time</span><strong>${totalHabitMins} mins</strong></div>
+      <div class="stats-stat"><span>Azkar</span><strong>${totalAzkar}</strong></div><div class="stats-stat"><span>Istighfar</span><strong>${totalIstighfar}</strong></div>
+      <div class="stats-stat"><span>Durood</span><strong>${totalDurood}</strong></div>
+    </div>
   </div>
-
   ${triggersHTML}`;
 }
 
@@ -2004,6 +2830,7 @@ function saveDraft(){
     trigger:document.getElementById('trigger-text')?.value||'',
     musicFree:!!document.getElementById('music-free')?.checked,
     dhikrItems: dhikrItems.map(x=>({...x})),
+    customSectionData:getCustomSectionSnapshot(),
     dhikrIdCounter,
     quranRead:!!document.getElementById('quran-read')?.checked,
     quranOnepage:!!document.getElementById('quran-onepage')?.checked,
@@ -2043,6 +2870,7 @@ function restoreDraft(){
     if(ht){ ht.checked=draft.isHaydMode; isHaydMode=draft.isHaydMode; }
   }
   applyModesUI();
+  if(draft.customSectionData) restoreCustomSectionState(draft.customSectionData);
 
   if(draft.salahVals) Object.keys(draft.salahVals).forEach(i=>{const el=document.getElementById('salah-'+i);if(el)el.value=draft.salahVals[i];});
   if(draft.voluntary){
@@ -2095,6 +2923,8 @@ let resetAll = _origResetAll;
 const __origReset = resetAll;
 resetAll = function(){
   __origReset();
+  clearSwipePosition();
+  _swipeIndex=0;
   localStorage.removeItem(DRAFT_KEY);
   const dot=document.getElementById('as-dot'),txt=document.getElementById('as-text');
   if(dot)dot.className='autosave-dot';
@@ -2161,7 +2991,7 @@ function exportBackup(){
   try{
     const history=getStorage();
     const draft=localStorage.getItem('spt_draft_v2')||null;
-    const payload={_meta:{app:'Spiritual Tracker',version:'3.0.0',exported:new Date().toISOString()},spt_v2:history,spt_draft_v2:draft?JSON.parse(draft):null};
+    const payload={_meta:{app:'Spiritual Tracker',version:'3.0.0-supabase',exported:new Date().toISOString()},spt_v2:history,spt_draft_v2:draft?JSON.parse(draft):null};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
@@ -2499,7 +3329,148 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(qrOverlay) qrOverlay.addEventListener('click',e=>{ if(e.target===qrOverlay) closeQuranReader(); });
   const wnOverlay = document.getElementById('whatsnew-overlay');
   if(wnOverlay) wnOverlay.addEventListener('click',e=>{ if(e.target===wnOverlay) closeWhatsNew(); });
+  const reminderOverlay = document.getElementById('reminder-overlay');
+  if(reminderOverlay) reminderOverlay.addEventListener('click',e=>{ if(e.target===reminderOverlay) closeIslamicReminder(); });
 });
+
+// ═══════════════════════════════════════════════════
+//  ISLAMIC DAILY REMINDER — first-open heart reminder
+// ═══════════════════════════════════════════════════
+const ISLAMIC_REMINDERS = [
+  {type:'Qur’an', title:'Begin with remembrance ✨', arabic:'أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ', text:'Surely in the remembrance of Allah do hearts find comfort.', source:'Qur’an 13:28'},
+  {type:'Qur’an', title:'Never lose hope 🤍', arabic:'لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ', text:'Do not despair of the mercy of Allah.', source:'Qur’an 39:53'},
+  {type:'Qur’an', title:'Keep walking 🌙', arabic:'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا', text:'So, surely with hardship comes ease. Surely with hardship comes ease.', source:'Qur’an 94:5–6'},
+  {type:'Qur’an', title:'Let Allah be enough 🌿', arabic:'وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ', text:'Whoever relies upon Allah — then He is sufficient for them.', source:'Qur’an 65:3'},
+  {type:'Qur’an', title:'Ask Him for knowledge 📖', arabic:'وَقُل رَّبِّ زِدْنِي عِلْمًا', text:'And say, “My Lord, increase me in knowledge.”', source:'Qur’an 20:114'},
+  {type:'Qur’an', title:'Allah sees your effort 🌱', arabic:'وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا', text:'Those who strive for Us — We will surely guide them to Our ways.', source:'Qur’an 29:69'},
+  {type:'Hadith', title:'Small, but consistent 🤲', arabic:'أَحَبُّ الْأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ', text:'The most beloved deeds to Allah are those that are most consistent, even if small.', source:'Sahih al-Bukhari 6464; Sahih Muslim 783'},
+  {type:'Hadith', title:'Begin with the right intention ✨', arabic:'إِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ', text:'Actions are judged by intentions, and every person will have what they intended.', source:'Sahih al-Bukhari 1; Sahih Muslim 1907'},
+  {type:'Qur’an', title:'Remember your purpose 🕌', arabic:'وَمَا خَلَقْتُ الْجِنَّ وَالْإِنسَ إِلَّا لِيَعْبُدُونِ', text:'I did not create jinn and humans except to worship Me.', source:'Qur’an 51:56'},
+  {type:'Qur’an', title:'Trust the One who knows 🌤️', arabic:'وَعَسَىٰ أَن تَكْرَهُوا شَيْئًا وَهُوَ خَيْرٌ لَّكُمْ', text:'Perhaps you dislike something and it is good for you; Allah knows and you do not know.', source:'Qur’an 2:216'}
+];
+let _reminderIdx = 0;
+let _reminderShown = false;
+
+function _dailyReminderStartIndex(){
+  const seed = Number(todayKey().replace(/-/g,'')) || 0;
+  return seed % ISLAMIC_REMINDERS.length;
+}
+function renderIslamicReminder(){
+  const r=ISLAMIC_REMINDERS[_reminderIdx];
+  const type=document.querySelector('.reminder-kicker');
+  const title=document.getElementById('reminder-title');
+  const arabic=document.getElementById('reminder-arabic');
+  const text=document.getElementById('reminder-text');
+  const source=document.getElementById('reminder-source');
+  const progress=document.getElementById('reminder-progress');
+  if(type) type.textContent=(r.type==='Hadith'?'A reminder from the Sunnah':'A reminder from the Qur’an');
+  if(title) title.textContent=r.title;
+  if(arabic) arabic.textContent=r.arabic;
+  if(text) text.textContent=r.text;
+  if(source) source.textContent='— '+r.source;
+  if(progress) progress.textContent=`${_reminderIdx+1} of ${ISLAMIC_REMINDERS.length}`;
+}
+function openIslamicReminder(){
+  const o=document.getElementById('reminder-overlay');
+  if(!o)return;
+  if(!_reminderShown){_reminderIdx=_dailyReminderStartIndex();_reminderShown=true;}
+  renderIslamicReminder();
+  o.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeIslamicReminder(){
+  const o=document.getElementById('reminder-overlay');
+  if(o)o.classList.remove('open');
+  document.body.style.overflow='';
+}
+function showAnotherIslamicReminder(){
+  _reminderIdx=(_reminderIdx+1)%ISLAMIC_REMINDERS.length;
+  renderIslamicReminder();
+}
+function maybeShowIslamicReminder(){
+  const key='spt_islamic_reminder_seen_'+todayKey();
+  if(localStorage.getItem(key))return;
+  localStorage.setItem(key,'1');
+  setTimeout(()=>openIslamicReminder(),650);
+}
+
+// ═══════════════════════════════════════════════════
+//  PERSONALIZED RECOMMENDATIONS
+// ═══════════════════════════════════════════════════
+function getRecommendationData(){
+  const history=getStorage();
+  const keys=Object.keys(history).filter(k=>history[k]&&history[k].maxScore>0).sort();
+  if(!keys.length) return null;
+  const recent=keys.slice(-14);
+  const rows=recent.map(k=>history[k]);
+  const avgPct=Math.round(rows.reduce((a,d)=>a+(d.score/d.maxScore*100),0)/rows.length);
+  const relapses=rows.filter(d=>d.gaze==='relapse').length;
+  const gazeSuccess=rows.filter(d=>d.gaze==='success').length;
+  const quranDays=rows.filter(d=>d.quran?.done).length;
+  const dhikrDays=rows.filter(d=>(d.dhikrScore||0)>=15).length;
+  const salahAvg=Math.round(rows.reduce((a,d)=>a+(d.salahScore||0),0)/rows.length);
+  const maxSalah=19;
+  const suggestions=[];
+  if(relapses>0) suggestions.push({icon:'👁️',title:'Protect your gaze',text:`There ${relapses===1?'was':'were'} ${relapses} recorded relapse day${relapses===1?'':'s'} in the last ${recent.length} logged days. Look at the trigger you recorded and choose one concrete barrier before the next vulnerable moment.`,action:'One safeguard is enough for now.'});
+  if(quranDays/recent.length<.6) suggestions.push({icon:'📖',title:'Make Qur’an consistency easier',text:`Qur’an reading was logged on ${quranDays} of ${recent.length} recent days. A small, reliable minimum may work better than waiting for a long session.`,action:'Try protecting one page as your minimum.'});
+  if(dhikrDays/recent.length<.5) suggestions.push({icon:'📿',title:'Bring dhikr back into the day',text:`Your full Dhikr target was reached on ${dhikrDays} of ${recent.length} recent days. Attach a short dhikr routine to an existing daily anchor.`,action:'Choose one fixed moment rather than adding many goals.'});
+  if(salahAvg/maxSalah<.65) suggestions.push({icon:'🕌',title:'Strengthen the prayer foundation',text:`Your recent Salah score averages around ${Math.round(salahAvg/maxSalah*100)}% of the tracked maximum. Give the five obligatory prayers priority over adding more optional targets.`,action:'Protect the next prayer first.'});
+  if(!suggestions.length) suggestions.push({icon:'🌿',title:'Protect what is already working',text:`Your recent average is ${avgPct}%. There is no obvious weak area demanding a new goal right now. Keep the routine simple and consistent.`,action:'Maintain before you expand.'});
+  return {recentCount:recent.length,avgPct,suggestions:suggestions.slice(0,3)};
+}
+
+function renderRecommendations(){
+  const data=getRecommendationData();
+  const content=document.getElementById('reco-content');
+  const sub=document.getElementById('reco-subtitle');
+  if(!content) return;
+  if(!data){
+    if(sub) sub.textContent='Save a few days first, then your tracker can offer a useful reflection.';
+    content.innerHTML='<div class="reco-card"><div class="reco-card-head"><div class="reco-icon">📖</div><div class="reco-card-title">Build a little history</div></div><div class="reco-card-text">Complete and save a few days before relying on patterns. The goal is guidance, not judgement.</div></div>';
+    return;
+  }
+  if(sub) sub.textContent=`Based on your last ${data.recentCount} logged days • average ${data.avgPct}% • gentle guidance, not a verdict.`;
+  content.innerHTML=data.suggestions.map((r,i)=>`<div class="reco-card ${i===0?'priority':''}"><div class="reco-card-head"><div class="reco-icon">${r.icon}</div><div class="reco-card-title">${escapeHTML(r.title)}</div></div><div class="reco-card-text">${escapeHTML(r.text)}</div><div class="reco-action">→ ${escapeHTML(r.action)}</div></div>`).join('');
+}
+function openRecommendations(){
+  renderRecommendations();
+  const o=document.getElementById('reco-overlay');
+  if(o){o.classList.add('open');document.body.style.overflow='hidden';}
+}
+function closeRecommendations(){
+  const o=document.getElementById('reco-overlay');
+  if(o){o.classList.remove('open');document.body.style.overflow='';}
+}
+
+function exportReportPDF(period){
+  const contentId=period==='monthly'?'monthly-content':'weekly-content';
+  const content=document.getElementById(contentId);
+  const btn=document.querySelector(`#tab-${period} .print-pdf-btn`);
+  if(!content || !content.innerHTML.trim()){alert('No report data available to export yet.');return;}
+  if(btn){btn.classList.add('loading');btn.textContent='⏳ Generating PDF…';}
+  const title=period==='monthly'?'Monthly Spiritual Report':'Weekly Spiritual Report';
+  const subtitle=(document.getElementById(period+'-range')?.textContent||'').trim();
+  const titleEl=document.createElement('div');
+  titleEl.className='pdf-export-title';titleEl.textContent='✨ '+title;
+  const subEl=document.createElement('div');
+  subEl.className='pdf-export-subtitle';subEl.textContent=subtitle+' • Exported '+new Date().toLocaleDateString('en-GB');
+  const wrap=document.createElement('div');
+  wrap.className='pdf-report-export';
+  // Use the live DOM so Chart.js canvases remain rendered in the PDF capture.
+  const originalChildren=Array.from(content.children);
+  wrap.appendChild(titleEl);wrap.appendChild(subEl);
+  originalChildren.forEach(el=>wrap.appendChild(el));
+  content.style.display='none';document.querySelector(`#tab-${period} .analytics-panel`).appendChild(wrap);
+  const opt={margin:[10,12,10,12],filename:`spiritual-${period}-report-${new Date().toISOString().slice(0,10)}.pdf`,image:{type:'jpeg',quality:.99},html2canvas:{scale:3,useCORS:true,backgroundColor:'#fff',logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};
+  html2pdf().set(opt).from(wrap).save().then(()=>{
+    originalChildren.forEach(el=>content.appendChild(el));wrap.remove();content.style.display='';
+    if(btn){btn.classList.remove('loading');btn.textContent=period==='monthly'?'📥 Download Monthly PDF':'📥 Download Weekly PDF';}
+  }).catch(err=>{
+    originalChildren.forEach(el=>content.appendChild(el));wrap.remove();content.style.display='';
+    if(btn){btn.classList.remove('loading');btn.textContent=period==='monthly'?'📥 Download Monthly PDF':'📥 Download Weekly PDF';}
+    console.error('Report PDF export error:',err);alert('PDF export failed. Please try again.');
+  });
+}
 
 // ═══════════════════════════════════════════════════
 //  FEATURE 7 — WHAT'S NEW NOTIFICATION BELL
@@ -2508,7 +3479,7 @@ function openWhatsNew(){
   document.getElementById('whatsnew-overlay').classList.add('open');
   document.body.style.overflow='hidden';
   // Mark as seen — hide dot
-  localStorage.setItem('spt_bell_seen_v25','1');
+  localStorage.setItem('spt_bell_seen_v27','1');
   const dot = document.getElementById('bell-dot');
   if(dot) dot.style.display='none';
 }
@@ -2519,7 +3490,7 @@ function closeWhatsNew(){
 }
 
 function initBellDot(){
-  const seen = localStorage.getItem('spt_bell_seen_v25');
+  const seen = localStorage.getItem('spt_bell_seen_v27');
   const dot  = document.getElementById('bell-dot');
   if(dot) dot.style.display = seen ? 'none' : 'block';
 }
@@ -2639,84 +3610,101 @@ function buildDiaryFeed(){
   }).join('');
 }
 
-function exportDiaryPDF(){
-  const btn = document.getElementById('diary-pdf-btn');
-  if(btn){ btn.classList.add('loading'); btn.textContent = '⏳ Generating PDF…'; }
+function _getDiaryReflectionKeys(){
+  const history=getStorage();
+  return Object.keys(history).filter(k=>{
+    const r=history[k]?.reflection;
+    return r&&(r.win?.trim()||r.improve?.trim());
+  }).sort();
+}
+function _mondayKey(dateKey){
+  const d=new Date(dateKey+'T12:00:00');
+  const day=d.getDay();
+  d.setDate(d.getDate()-(day===0?6:day-1));
+  return getDateKey(d);
+}
+function _formatShortPeriod(mode,value){
+  if(mode==='month'){
+    const [y,m]=value.split('-').map(Number),d=new Date(y,m-1,1);
+    return DIARY_MONTHS[m-1]+' '+y;
+  }
+  const start=new Date(value+'T12:00:00'),end=new Date(start);end.setDate(start.getDate()+6);
+  const sm=DIARY_MONTHS[start.getMonth()].slice(0,3),em=DIARY_MONTHS[end.getMonth()].slice(0,3);
+  return `${sm} ${start.getDate()} – ${em} ${end.getDate()}, ${end.getFullYear()}`;
+}
+function updateDiaryExportPeriodOptions(){
+  const mode=document.getElementById('diary-export-mode')?.value||'week';
+  const sel=document.getElementById('diary-export-period');
+  if(!sel)return;
+  const keys=_getDiaryReflectionKeys();
+  const periods=[...new Set(keys.map(k=>mode==='month'?k.slice(0,7):_mondayKey(k)))].sort().reverse();
+  if(!periods.length){sel.innerHTML='<option value="">No reflection periods yet</option>';return;}
+  const current=mode==='month'?todayKey().slice(0,7):_mondayKey(todayKey());
+  sel.innerHTML=periods.map(v=>`<option value="${v}" ${v===current?'selected':''}>${_formatShortPeriod(mode,v)}</option>`).join('');
+}
+function buildDiaryExportPeriodKeys(mode,value){
+  const keys=_getDiaryReflectionKeys();
+  if(!value)return [];
+  if(mode==='month')return keys.filter(k=>k.startsWith(value));
+  const start=new Date(value+'T12:00:00');const end=new Date(start);end.setDate(start.getDate()+6);
+  const endKey=getDateKey(end);
+  return keys.filter(k=>k>=value&&k<=endKey);
+}
 
-  const history = getStorage();
-  const keys = Object.keys(history)
-    .sort((a,b) => a.localeCompare(b)) // oldest first for PDF narrative flow
-    .filter(k => {
-      const r = history[k].reflection;
-      return r && (r.win?.trim() || r.improve?.trim());
-    });
-
+function buildDiaryFeed(){
+  const feed=document.getElementById('diary-feed');
+  const history=getStorage();
+  if(!feed)return;
+  updateDiaryExportPeriodOptions();
+  const keys=Object.keys(history).sort((a,b)=>b.localeCompare(a)).filter(k=>{const r=history[k].reflection;return r&&(r.win?.trim()||r.improve?.trim());});
   if(!keys.length){
-    if(btn){ btn.classList.remove('loading'); btn.textContent = '📥 Download Diary as PDF'; }
-    alert('No reflections to export yet. Save some days with written reflections first!');
+    feed.innerHTML=`<div class="diary-empty"><div class="diary-empty-icon">📖</div><div class="diary-empty-text">No reflections saved yet.<br>Complete a day, write your thoughts, and tap <strong style="color:var(--gold)">Save</strong> to start your diary.</div></div>`;
     return;
   }
-
-  const entriesHTML = keys.map(k => {
-    const entry   = history[k];
-    const r       = entry.reflection || {};
-    const win     = r.win?.trim()     || '';
-    const improve = r.improve?.trim() || '';
-    const score   = entry.score     ?? '—';
-    const maxSc   = entry.maxScore  ?? 0;
-    const pct     = maxSc > 0 ? Math.round(score / maxSc * 100) : 0;
-    const khushu  = _khushuEmoji(entry.khushu);
-    const fmtDate = _formatDiaryDate(k);
-
-    const winBlock = win ? `
-      <div class="pdf-label">🌟 Spiritual Highlight</div>
-      <div class="pdf-text">${win.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
-
-    const improveBlock = improve ? `
-      <div class="pdf-label">🎯 What to Improve</div>
-      <div class="pdf-text improve">${improve.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
-
-    const scoreLabel = `${score} pts (${pct}%)${khushu ? ' — ' + khushu : ''}`;
-
-    return `<div class="pdf-entry">
-      <div class="pdf-entry-date">
-        <span>${fmtDate}</span>
-        <span class="pdf-entry-score">${scoreLabel}</span>
-      </div>
-      ${winBlock}
-      ${improveBlock}
-    </div>`;
+  feed.innerHTML=keys.map(k=>{
+    const entry=history[k],r=entry.reflection||{},win=r.win?.trim()||'',improve=r.improve?.trim()||'',score=entry.score??'—',maxSc=entry.maxScore??0,pct=maxSc>0?Math.round(score/maxSc*100):0,khushu=_khushuEmoji(entry.khushu),fmtDate=_formatDiaryDate(k);
+    const winHtml=win?`<div class="diary-section"><div class="diary-section-label">🌟 Today's Spiritual Highlight</div><div class="diary-text">${escapeHTML(win)}</div></div>`:'';
+    const improveHtml=improve?`<div class="diary-section" style="margin-top:10px"><div class="diary-section-label improve">🎯 What I Want to Improve</div><div class="diary-text improve">${escapeHTML(improve)}</div></div>`:'';
+    const khushuChip=khushu?`<span class="diary-khushu-chip">${khushu}</span>`:'';
+    return `<div class="diary-entry"><div class="diary-card"><div class="diary-card-top"><div class="diary-date">${fmtDate}</div><div class="diary-chips"><span class="diary-score-chip">⭐ ${score} pts (${pct}%)</span>${khushuChip}</div></div>${winHtml}${improveHtml}</div></div>`;
   }).join('');
+}
 
-  const exportedDate = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'diary-pdf-export-wrap';
-  wrapper.innerHTML = `
-    <div class="pdf-title">✨ My Spiritual Reflection Diary</div>
-    <div class="pdf-subtitle">Exported on ${exportedDate} — ${keys.length} reflection${keys.length!==1?'s':''}</div>
-    ${entriesHTML}
-  `;
+function exportDiaryPDF(){
+  const btn=document.getElementById('diary-pdf-btn');
+  const mode=document.getElementById('diary-export-mode')?.value||'week';
+  const period=document.getElementById('diary-export-period')?.value||'';
+  const keys=buildDiaryExportPeriodKeys(mode,period);
+  if(!keys.length){alert('No reflections are saved for this period yet. Choose another week or month.');return;}
+  if(btn){btn.classList.add('loading');btn.textContent='⏳ Generating Reflection PDF…';}
+  const history=getStorage();
+  const entriesHTML=keys.map(k=>{
+    const entry=history[k],r=entry.reflection||{},win=r.win?.trim()||'',improve=r.improve?.trim()||'',score=entry.score??'—',maxSc=entry.maxScore??0,pct=maxSc>0?Math.round(score/maxSc*100):0,khushu=_khushuEmoji(entry.khushu);
+    const winBlock=win?`<div class="pdf-label">🌟 Spiritual Highlight</div><div class="pdf-text">${escapeHTML(win)}</div>`:'';
+    const improveBlock=improve?`<div class="pdf-label">🎯 What to Improve</div><div class="pdf-text improve">${escapeHTML(improve)}</div>`:'';
+    return `<div class="pdf-entry"><div class="pdf-entry-date"><span>${_formatDiaryDate(k)}</span><span class="pdf-entry-score">${score} pts (${pct}%)${khushu?' — '+escapeHTML(khushu):''}</span></div>${winBlock}${improveBlock}</div>`;
+  }).join('');
+  const wrapper=document.createElement('div');wrapper.className='diary-pdf-export-wrap';
+  const exportedDate=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  wrapper.innerHTML=`<div class="pdf-title">✨ My Spiritual Reflection — ${escapeHTML(_formatShortPeriod(mode,period))}</div><div class="pdf-subtitle">${keys.length} reflection${keys.length!==1?'s':''} • Exported ${exportedDate}</div>${entriesHTML}`;
   document.body.appendChild(wrapper);
+  const opt={margin:[10,12,10,12],filename:`spiritual-reflections-${mode}-${period}-${todayKey()}.pdf`,image:{type:'jpeg',quality:.88},html2canvas:{scale:2,useCORS:true,backgroundColor:'#fefefe',logging:false,imageTimeout:15000,letterRendering:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},pagebreak:{mode:['css','legacy']}};
+  html2pdf().set(opt).from(wrapper).save().then(()=>{wrapper.remove();if(btn){btn.classList.remove('loading');btn.textContent='📥 Download Selected Reflection PDF';}}).catch(err=>{wrapper.remove();if(btn){btn.classList.remove('loading');btn.textContent='📥 Download Selected Reflection PDF';}console.error('Reflection PDF export error:',err);alert('PDF export failed. Please try again.');});
+}
 
-  const opt = {
-    margin:      [12, 14, 12, 14],
-    filename:    `spiritual-diary-${new Date().toISOString().slice(0,10)}.pdf`,
-    image:       { type:'jpeg', quality:0.97 },
-    html2canvas: { scale:2, useCORS:true, backgroundColor:'#fefefe' },
-    jsPDF:       { unit:'mm', format:'a4', orientation:'portrait' },
-    pagebreak:   { mode:['avoid-all','css'], before:'.pdf-entry' },
-  };
-
-  html2pdf().set(opt).from(wrapper).save().then(() => {
-    document.body.removeChild(wrapper);
-    if(btn){ btn.classList.remove('loading'); btn.textContent = '📥 Download Diary as PDF'; }
-  }).catch(err => {
-    document.body.removeChild(wrapper);
-    if(btn){ btn.classList.remove('loading'); btn.textContent = '📥 Download Diary as PDF'; }
-    console.error('PDF export error:', err);
-    alert('PDF export failed. Please try again.');
-  });
+function maybeShowRecommendations(){
+  const history=getStorage();
+  const logged=Object.keys(history).filter(k=>history[k]&&history[k].maxScore>0).length;
+  if(logged<3) return;
+  const key='spt_reco_seen_'+todayKey();
+  if(localStorage.getItem(key)) return;
+  setTimeout(()=>{
+    // Give the user a quiet entry point rather than interrupting immediately on load.
+    const overlay=document.getElementById('reco-overlay');
+    if(!overlay || overlay.classList.contains('open')) return;
+    localStorage.setItem(key,'1');
+    openRecommendations();
+  },2500);
 }
 
 // ═══════════════════════════════════════════════════
@@ -2726,13 +3714,14 @@ const D_=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'
 const M_=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 document.getElementById('date-display').textContent=D_[NOW.getDay()]+', '+M_[NOW.getMonth()]+' '+NOW.getDate()+' '+NOW.getFullYear();
 
-// Surah Kahf visibility — only show Thu evening or Friday
-const kahfRow = document.getElementById('kahf-row');
-if(kahfRow) kahfRow.style.display = IS_KAHF_DAY ? 'flex' : 'none';
+// Surah Kahf: one weekly bonus. If completed Thursday, Friday does not ask again.
+function wasKahfCompletedThursday(){if(!IS_FRIDAY)return false;const d=new Date(NOW);d.setDate(d.getDate()-1);return !!getStorage()[getDateKey(d)]?.quran?.kahf;}
+function updateKahfUI(){const row=document.getElementById('kahf-row'),desc=document.getElementById('kahf-desc'),badge=document.getElementById('kahf-bonus-badge');if(!row)return;const doneThu=wasKahfCompletedThursday();row.style.display=(IS_KAHF_DAY&&!doneThu)?'flex':'none';if(doneThu&&desc)desc.textContent='✓ Already completed Thursday — weekly bonus earned';if(badge)badge.style.display='inline-flex';}
+updateKahfUI();
 
 if(IS_FRIDAY){
   document.getElementById('jummah-note').classList.add('visible');
-  document.getElementById('kahf-desc').textContent="🕌 It's Friday — special reward for reading Surah Kahf today!";
+  if(!wasKahfCompletedThursday()) document.getElementById('kahf-desc').textContent="🕌 It's Friday — special reward for reading Surah Kahf today!";
 }
 if(IS_THURSDAY_EVE){
   const kd=document.getElementById('kahf-desc');
@@ -2749,10 +3738,21 @@ _renderAyah();
 // Init bell dot
 initBellDot();
 
+// Build configurable sections, then restore today's draft.
+applySectionConfig();
 // Restore draft, then score & streaks
 const _drafted = restoreDraft();
 updateScore();
 updateStreakUI();
+initSwipeNavigation();
+initStickyScoreVisibility();
+refreshSwipeForModes();
+maybeShowIslamicReminder();
+const _resumeHint=document.getElementById('swipe-hint');
+if(_resumeHint&&_swipeIndex>0){_resumeHint.textContent='↔ Continuing from your last section — swipe to navigate';}
+
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeIslamicReminder();closeRecommendations();closeWhatsNew();return;}if(document.getElementById('tab-daily')?.style.display==='none')return;if(e.target.closest('input,select,textarea,button,[contenteditable="true"]'))return;if(e.key==='ArrowLeft')moveSwipeSection(-1);if(e.key==='ArrowRight')moveSwipeSection(1);});
 
 // Hook autosave on free-text inputs (old ids removed since dhikr is now dynamic)
 ['reflection-win','reflection-improve','trigger-text','quran-mins','quran-pages'].forEach(id=>{
