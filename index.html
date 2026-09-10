@@ -2046,6 +2046,26 @@ function _rowToLocalPayload(row){
   };
 }
 
+function _cloudErrorText(err){
+  if(!err)return 'Unknown cloud error.';
+  const parts=[err.message,err.details,err.hint,err.code].filter(Boolean);
+  return parts.join(' · ')||String(err);
+}
+
+function _validRecordDateKey(dateKey){
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(dateKey)) && !Number.isNaN(Date.parse(String(dateKey)+'T00:00:00Z'));
+}
+
+async function _requireCloudSession(){
+  if(!supabaseClient)throw new Error('Supabase client is unavailable.');
+  const {data,error}=await supabaseClient.auth.getSession();
+  if(error)throw error;
+  const user=data?.session?.user||currentSupabaseUser;
+  if(!user)throw new Error('Your sign-in session is no longer available. Please sign in again.');
+  currentSupabaseUser=user;
+  return user;
+}
+
 async function _savePreferencesToCloud(){
   if(!currentSupabaseUser)return;
   const payload={
@@ -2061,12 +2081,12 @@ async function _savePreferencesToCloud(){
     updated_at:new Date().toISOString()
   };
   const {error}=await supabaseClient.from('user_preferences').upsert(payload,{onConflict:'user_id'});
-  if(error)throw error;
+  if(error)throw new Error('Preferences: '+_cloudErrorText(error));
 }
 
 async function _pullCloudRecords(){
   const {data,error}=await supabaseClient.from('daily_records').select('*').order('record_date',{ascending:false});
-  if(error)throw error;
+  if(error)throw new Error('Pull daily records: '+_cloudErrorText(error));
   const history=getStorage();
   (data||[]).forEach(row=>{
     const local=history[row.record_date];
@@ -2076,34 +2096,47 @@ async function _pullCloudRecords(){
     if(!local || remoteTime>localTime) history[row.record_date]=remote;
   });
   setStorage(history);
+  return data||[];
 }
 
 async function _pushLocalRecords(){
-  if(!currentSupabaseUser||!cloudSyncEnabled)return;
+  if(!currentSupabaseUser||!cloudSyncEnabled)return 0;
   const history=getStorage();
-  const rows=Object.entries(history).map(([dateKey,payload])=>_localPayloadToRow(dateKey,payload));
-  if(!rows.length)return;
-  const {error}=await supabaseClient.from('daily_records').upsert(rows,{onConflict:'user_id,record_date'});
-  if(error)throw error;
+  const entries=Object.entries(history).filter(([dateKey,payload])=>_validRecordDateKey(dateKey)&&payload&&typeof payload==='object');
+  if(!entries.length)return 0;
+  const chunkSize=50;
+  let pushed=0;
+  for(let i=0;i<entries.length;i+=chunkSize){
+    const rows=entries.slice(i,i+chunkSize).map(([dateKey,payload])=>_localPayloadToRow(dateKey,payload));
+    const {error}=await supabaseClient.from('daily_records').upsert(rows,{onConflict:'user_id,record_date'});
+    if(error)throw new Error('Push daily records (batch '+(Math.floor(i/chunkSize)+1)+'): '+_cloudErrorText(error));
+    pushed+=rows.length;
+  }
+  return pushed;
 }
 
 async function syncNow(){
   if(!currentSupabaseUser||!cloudSyncEnabled)return;
   if(_cloudSyncBusy)return;
   _cloudSyncBusy=true;
-  _cloudSetStatus('syncing','Syncing your private data…');
+  _cloudSetStatus('syncing','Checking secure cloud session…');
   try{
+    await _requireCloudSession();
+    _cloudSetStatus('syncing','Pulling your private cloud records…');
     await _pullCloudRecords();
-    await _pushLocalRecords();
+    _cloudSetStatus('syncing','Uploading your saved records…');
+    const pushed=await _pushLocalRecords();
+    _cloudSetStatus('syncing','Saving your tracker preferences…');
     await _savePreferencesToCloud();
     updateAccountUI();
     updateStreakUI();
     buildDiaryFeed();
-    showBackupStatus('☁️ Private cloud sync complete.','success');
+    showBackupStatus('☁️ Private cloud sync complete. '+(pushed?`${pushed} record${pushed===1?'':'s'} synced.`:'No local records needed uploading.'),'success');
   }catch(err){
-    console.error(err);
-    _cloudSetStatus('error','Sync failed. Your local data is still safe.');
-    showBackupStatus('❌ Cloud sync failed — local data unchanged.','error');
+    console.error('[Spiritual Tracker] Cloud sync failed:',err);
+    const detail=_cloudErrorText(err);
+    _cloudSetStatus('error','Cloud sync failed: '+detail);
+    showBackupStatus('❌ Cloud sync failed. Your local data is still safe. '+detail,'error');
   }finally{_cloudSyncBusy=false;}
 }
 
