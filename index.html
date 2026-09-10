@@ -1997,8 +1997,8 @@ function _localPayloadToRow(dateKey,payload){
   return {
     user_id:currentSupabaseUser.id,
     record_date:dateKey,
-    score:Number(payload.score)||0,
-    max_score:Number(payload.maxScore)||0,
+    score:Number.isFinite(Number(payload.score))?Math.round(Number(payload.score)*100)/100:0,
+    max_score:Number.isFinite(Number(payload.maxScore))?Math.round(Number(payload.maxScore)*100)/100:0,
     fardh_salah:payload.salahData||{},
     nafl_salah:payload.voluntary||{},
     khushu:{value:payload.khushu||''},
@@ -3630,9 +3630,32 @@ const ISLAMIC_REMINDERS = [
 let _reminderIdx = 0;
 let _reminderShown = false;
 
-function _dailyReminderStartIndex(){
-  const seed = Number(todayKey().replace(/-/g,'')) || 0;
-  return seed % ISLAMIC_REMINDERS.length;
+function _randomReminderIndex(excludeIndex=-1){
+  const total=ISLAMIC_REMINDERS.length;
+  if(total<=1)return 0;
+  let n=0;
+  try{
+    if(window.crypto&&typeof window.crypto.getRandomValues==='function'){
+      const buf=new Uint32Array(1);
+      window.crypto.getRandomValues(buf);
+      n=buf[0]%total;
+    }else{
+      n=Math.floor(Math.random()*total);
+    }
+  }catch(e){
+    n=Math.floor(Math.random()*total);
+  }
+  if(n===excludeIndex)n=(n+1+Math.floor(Math.random()*(total-1)))%total;
+  return n;
+}
+function _getLastReminderIndex(){
+  try{
+    const n=Number(localStorage.getItem('spt_reminder_last_index'));
+    return Number.isInteger(n)&&n>=0&&n<ISLAMIC_REMINDERS.length?n:-1;
+  }catch(e){return -1;}
+}
+function _saveLastReminderIndex(){
+  try{localStorage.setItem('spt_reminder_last_index',String(_reminderIdx));}catch(e){}
 }
 function renderIslamicReminder(isReturningToday=false){
   const r=ISLAMIC_REMINDERS[_reminderIdx];
@@ -3654,10 +3677,16 @@ function renderIslamicReminder(isReturningToday=false){
 function openIslamicReminder(){
   const o=document.getElementById('reminder-overlay');
   if(!o)return;
-  if(!_reminderShown){_reminderIdx=_dailyReminderStartIndex();_reminderShown=true;}
+  if(!_reminderShown){
+    // Choose a genuinely random reminder on every fresh page load.
+    // Avoid the reminder shown on the previous open so refreshes do not keep repeating it.
+    _reminderIdx=_randomReminderIndex(_getLastReminderIndex());
+    _reminderShown=true;
+  }
   let returningToday=false;
   try{returningToday=localStorage.getItem('spt_reminder_last_open_date')===todayKey();}catch(e){}
   renderIslamicReminder(returningToday);
+  _saveLastReminderIndex();
   try{localStorage.setItem('spt_reminder_last_open_date',todayKey());}catch(e){}
   o.classList.add('open');
   document.body.style.overflow='hidden';
@@ -3670,6 +3699,7 @@ function closeIslamicReminder(){
 function showAnotherIslamicReminder(){
   _reminderIdx=(_reminderIdx+1)%ISLAMIC_REMINDERS.length;
   renderIslamicReminder();
+  _saveLastReminderIndex();
 }
 function maybeShowIslamicReminder(){
   // The Islamic reminder is intentionally shown on every fresh page load.
