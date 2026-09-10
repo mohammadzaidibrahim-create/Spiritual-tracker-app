@@ -70,6 +70,42 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .account-modal-status.error{color:#ff8b8b;}
 .account-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--border);margin-top:10px;}
 
+
+/* ═══ RETROSPECTIVE DATE NAVIGATION — clean integration ═══ */
+.retro-date-panel{background:linear-gradient(135deg,rgba(245,200,66,.055),rgba(79,195,247,.035));border:1px solid rgba(245,200,66,.18);border-radius:15px;padding:12px 13px;margin-bottom:12px;}
+.retro-date-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.retro-date-title{font-size:12px;font-weight:800;color:var(--text);}
+.retro-date-sub{font-size:10px;color:var(--muted);line-height:1.45;margin-top:2px;}
+.retro-date-controls{display:grid;grid-template-columns:42px 1fr 42px;gap:7px;margin-top:9px;}
+.retro-nav-btn,.retro-today-btn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;font-family:'Outfit',sans-serif;font-weight:800;cursor:pointer;min-height:40px;}
+.retro-nav-btn{font-size:22px;line-height:1;}
+.retro-nav-btn:hover,.retro-today-btn:hover{border-color:var(--gold);color:var(--gold);}
+.retro-date-input{width:100%;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;padding:8px 10px;outline:none;text-align:center;}
+.retro-date-input:focus{border-color:var(--gold);}
+.retro-today-btn{padding:0 12px;font-size:10px;color:var(--gold);border-color:rgba(245,200,66,.25);background:rgba(245,200,66,.06);}
+.retro-date-status{font-size:10px;color:var(--muted);text-align:center;margin-top:7px;}
+.retro-date-status.active{color:var(--gold);font-weight:700;}
+@media(max-width:380px){.retro-date-sub{font-size:9.5px}.retro-date-controls{grid-template-columns:38px 1fr 38px;}}
+
+
+/* ═══ DAILY GUIDANCE — additive; original Quran widget remains intact ═══ */
+.daily-guidance-card{background:radial-gradient(circle at 50% 0%,rgba(245,200,66,.085),transparent 45%),linear-gradient(145deg,#151a23,#10131a);border:1px solid rgba(245,200,66,.22);border-radius:17px;padding:15px 14px;margin-bottom:14px;box-shadow:0 8px 25px rgba(0,0,0,.16);}
+.daily-guidance-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px;}
+.daily-guidance-kicker{font-family:'Cinzel Decorative',serif;font-size:12px;color:var(--gold);}
+.daily-guidance-sub{font-size:10px;color:var(--muted);margin-top:3px;}
+.daily-guidance-refresh{width:32px;height:32px;border-radius:50%;border:1px solid rgba(245,200,66,.25);background:rgba(245,200,66,.05);color:var(--gold);font-size:18px;cursor:pointer;}
+.daily-guidance-item{padding:11px 9px 10px;background:rgba(0,0,0,.13);border:1px solid rgba(255,255,255,.045);border-radius:12px;text-align:center;}
+.daily-guidance-item.hadith{background:rgba(79,195,247,.025);}
+.daily-guidance-label{font-size:9px;letter-spacing:1.2px;text-transform:uppercase;font-weight:800;color:var(--gold);margin-bottom:7px;}
+.daily-guidance-arabic{font-family:Georgia,'Times New Roman',serif;direction:rtl;font-size:20px;line-height:1.9;color:#f7d978;margin-bottom:7px;}
+.daily-guidance-text{font-family:Georgia,'Times New Roman',serif;font-size:12px;line-height:1.65;color:var(--text);font-style:italic;}
+.daily-guidance-ref{font-size:9px;color:var(--gold);font-weight:700;margin-top:7px;}
+.daily-guidance-divider{text-align:center;color:var(--gold);font-size:11px;opacity:.6;padding:6px 0;}
+.daily-guidance-read-btn{margin-top:9px;min-height:34px;padding:7px 13px;border-radius:9px;border:1px solid rgba(245,200,66,.3);background:rgba(245,200,66,.05);color:var(--gold);font-family:'Outfit',sans-serif;font-size:10px;font-weight:700;cursor:pointer;transition:all .2s}.daily-guidance-read-btn:hover{background:rgba(245,200,66,.1);border-color:var(--gold)}
+.daily-guidance-reader-overlay{position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .3s}.daily-guidance-reader-overlay.open{opacity:1;pointer-events:auto}.daily-guidance-reader-modal{background:var(--card);border:1px solid rgba(245,200,66,.28);border-radius:20px;width:100%;max-width:540px;max-height:88vh;overflow-y:auto;padding:24px 20px 25px;position:relative;box-shadow:0 25px 80px rgba(0,0,0,.55)}.dgr-close{position:absolute;top:12px;right:15px;background:none;border:none;color:var(--muted);font-size:23px;cursor:pointer}.dgr-title{font-family:'Cinzel Decorative',serif;font-size:15px;color:var(--gold);text-align:center;margin-bottom:5px;padding-right:25px}.dgr-sub{font-size:10px;color:var(--muted);text-align:center;margin-bottom:17px}.dgr-label{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin:0 0 7px;text-align:center}.dgr-arabic{font-family:Georgia,'Times New Roman',serif;direction:rtl;text-align:right;font-size:22px;line-height:2.15;color:#f7d978;background:rgba(245,200,66,.045);border:1px solid rgba(245,200,66,.14);border-radius:12px;padding:15px 16px;margin-bottom:11px}.dgr-trans{font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.9;color:var(--text);font-style:italic;background:var(--surface);border-radius:10px;padding:14px 16px;white-space:pre-wrap}.dgr-ref{font-size:10px;color:var(--gold);font-weight:700;margin-top:8px;text-align:right}.dgr-note{font-size:9px;color:var(--muted);line-height:1.55;text-align:center;margin-top:14px}
+.daily-guidance-note{text-align:center;color:var(--muted);font-size:9px;margin-top:9px;line-height:1.45;}
+@media(max-width:380px){.daily-guidance-card{padding:13px 11px}.daily-guidance-arabic{font-size:18px}.daily-guidance-text{font-size:11.5px;}}
+
 /* ═══ SISTERS / HAYD TOGGLE PANEL ═══ */
 .mode-panel{background:var(--card);border:1px solid var(--border);border-radius:15px;padding:12px 15px;margin-bottom:14px;animation:fadeDown .6s .05s ease both;}
 .mode-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
@@ -511,6 +547,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
 /* PHASE 1 — SWIPE NAVIGATION & STICKY SCORE — POLISHED */
 .daily-section-viewport{position:relative;overflow:hidden;border-radius:16px;margin-bottom:12px;transition:height .35s ease;touch-action:pan-y;}
+.daily-section-viewport{transition:height .42s cubic-bezier(.22,.61,.36,1);}
+.daily-section-slide{transition:opacity .2s ease;}
+.dhikr-multi-container,.extra-nafl-container{transition:height .32s ease;}
 .daily-section-track{display:flex;align-items:flex-start;width:100%;transition:transform .35s cubic-bezier(.22,.61,.36,1);will-change:transform;}
 .daily-section-slide{flex:0 0 100%;width:100%;min-width:100%;padding:0 1px;}
 .daily-section-slide>.section-card{margin-bottom:0;}
@@ -521,7 +560,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .swipe-dot.active{width:22px;border-radius:8px;background:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(245,200,66,.35);}
 .swipe-dot:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
 /* The compact score only appears after the hero score scrolls away — never both at once. */
-.sticky-score-bar{position:fixed;top:10px;left:50%;width:min(calc(100% - 28px),560px);z-index:700;display:flex;align-items:center;gap:10px;background:rgba(17,19,24,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(245,200,66,.2);border-radius:14px;padding:8px 11px;margin:0;box-shadow:0 8px 28px rgba(0,0,0,.34);opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,-12px);transition:opacity .25s ease,transform .25s ease,visibility .25s ease;}
+.sticky-score-bar{position:fixed;top:var(--sticky-top,10px);left:50%;width:min(calc(100% - 28px),560px);z-index:700;display:flex;align-items:center;gap:10px;background:rgba(17,19,24,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(245,200,66,.2);border-radius:14px;padding:8px 11px;margin:0;box-shadow:0 8px 28px rgba(0,0,0,.34);opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,-12px);transition:opacity .25s ease,transform .25s ease,visibility .25s ease;}
 .sticky-score-bar.is-visible{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0);}
 .sticky-score-ring{position:relative;width:38px;height:38px;flex:0 0 38px;}
 .sticky-score-ring svg{width:38px;height:38px;transform:rotate(-90deg);}
@@ -950,6 +989,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
 
 <!-- ══════════════════ ISLAMIC DAILY REMINDER MODAL ══════════════════ -->
+<div class="daily-guidance-reader-overlay" id="daily-guidance-reader-overlay">
+  <div class="daily-guidance-reader-modal">
+    <button class="dgr-close" onclick="closeDailyGuidanceReader()" aria-label="Close">×</button>
+    <div class="dgr-title" id="dgr-title">📖 Full Ayah</div>
+    <div class="dgr-sub" id="dgr-sub"></div>
+    <div class="dgr-label">Arabic</div><div class="dgr-arabic" id="dgr-arabic"></div>
+    <div class="dgr-label">Complete meaning</div><div class="dgr-trans" id="dgr-trans"></div>
+    <div class="dgr-ref" id="dgr-ref"></div>
+    <div class="dgr-note" id="dgr-note"></div>
+  </div>
+</div>
+
 <div class="reminder-overlay" id="reminder-overlay">
   <div class="reminder-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-title">
     <button class="reminder-close" onclick="closeIslamicReminder()" aria-label="Close reminder">×</button>
@@ -962,7 +1013,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="reminder-divider"></div>
     <div class="reminder-action">
       <button class="reminder-btn" onclick="showAnotherIslamicReminder()">✨ Another Reminder</button>
-      <button class="reminder-btn secondary" onclick="closeIslamicReminder()">Begin My Day</button>
+      <button class="reminder-btn secondary" id="reminder-primary-btn" onclick="closeIslamicReminder()">Begin My Day</button>
     </div>
     <div class="reminder-progress" id="reminder-progress"></div>
     <div class="reminder-note">A small reminder — not a replacement for learning the Qur’an and Sunnah.</div>
@@ -1061,6 +1112,51 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           <div class="bell-dot" id="bell-dot"></div>
         </div>
       </div>
+    </div>
+
+
+    <!-- ═══ Retrospective / Date Navigation ═══ -->
+    <div class="retro-date-panel" id="retro-date-panel">
+      <div class="retro-date-head">
+        <div>
+          <div class="retro-date-title">📅 <span id="date-mode-label">Today</span></div>
+          <div class="retro-date-sub">Missed a day? Select a past date and complete the entry.</div>
+        </div>
+        <button class="retro-today-btn" id="retro-today-btn" onclick="goToToday()">Today</button>
+      </div>
+      <div class="retro-date-controls">
+        <button class="retro-nav-btn" id="retro-prev-btn" onclick="moveActiveDate(-1)" aria-label="Previous day">‹</button>
+        <input class="retro-date-input" id="retro-date" type="date" onchange="selectActiveDate(this.value)" aria-label="Select tracker date">
+        <button class="retro-nav-btn" id="retro-next-btn" onclick="moveActiveDate(1)" aria-label="Next day">›</button>
+      </div>
+      <div class="retro-date-status" id="retro-date-status">You’re tracking today.</div>
+    </div>
+
+    <!-- ═══ Daily Qur'an + Hadith Guidance — outside swipe tracker ═══ -->
+    <div class="daily-guidance-card" id="daily-guidance-card">
+      <div class="daily-guidance-head">
+        <div>
+          <div class="daily-guidance-kicker">✨ Daily Guidance</div>
+          <div class="daily-guidance-sub">A verse and a prophetic reminder for this day</div>
+        </div>
+        <button class="daily-guidance-refresh" onclick="loadNewDailyGuidance()" aria-label="Show another daily guidance">↻</button>
+      </div>
+      <div class="daily-guidance-item">
+        <div class="daily-guidance-label">📖 Qur’an — Daily Ayah</div>
+        <div class="daily-guidance-arabic" id="daily-guidance-ayah-arabic">…</div>
+        <div class="daily-guidance-text" id="daily-guidance-ayah-trans">Loading…</div>
+        <div class="daily-guidance-ref" id="daily-guidance-ayah-ref"></div>
+        <button class="daily-guidance-read-btn" onclick="openDailyGuidanceReader('ayah')">📖 Read Full Ayah</button>
+      </div>
+      <div class="daily-guidance-divider">✦</div>
+      <div class="daily-guidance-item hadith">
+        <div class="daily-guidance-label">ﷺ Hadith — Daily Reminder</div>
+        <div class="daily-guidance-arabic" id="daily-guidance-hadith-arabic">…</div>
+        <div class="daily-guidance-text" id="daily-guidance-hadith-trans">Loading…</div>
+        <div class="daily-guidance-ref" id="daily-guidance-hadith-ref"></div>
+        <button class="daily-guidance-read-btn" onclick="openDailyGuidanceReader('hadith')">📜 Read Full Hadith</button>
+      </div>
+      <div class="daily-guidance-note">Read it, reflect on it, then begin your tracking.</div>
     </div>
 
     <!-- Autosave Indicator -->
@@ -1415,16 +1511,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <button class="quran-read-btn" onclick="openQuranReader('baqarah')">📖 Read Baqarah 285-286</button>
       </div>
 
-      <!-- Daily Ayah Widget -->
-      <div class="quran-widget-wrap">
-        <div class="quran-widget-title">✨ Daily Ayah</div>
-        <div class="quran-ayah-card" id="daily-ayah-card">
-          <div class="quran-ayah-arabic" id="ayah-arabic">…</div>
-          <div class="quran-ayah-trans" id="ayah-trans">Loading daily verse…</div>
-          <div class="quran-ayah-ref" id="ayah-ref"></div>
-          <button class="quran-ayah-btn" onclick="loadNewAyah()">🔄 New Verse</button>
-        </div>
-      </div>
     </div>
         </div>
         <div class="daily-section-slide" data-section-index="5" data-section-key="fast" data-section-name="Voluntary Fast">
@@ -1688,17 +1774,34 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 //  CONSTANTS & STATE
 // ═══════════════════════════════════════════════════
 const NOW = new Date();
-const IS_FRIDAY = NOW.getDay() === 5;
-const IS_THURSDAY_EVE = NOW.getDay() === 4;
-const IS_KAHF_DAY = IS_FRIDAY || IS_THURSDAY_EVE;
+let activeDateKey = todayKey();
+let IS_FRIDAY = NOW.getDay() === 5;
+let IS_THURSDAY_EVE = NOW.getDay() === 4;
+let IS_KAHF_DAY = IS_FRIDAY || IS_THURSDAY_EVE;
 
 const SALAH_NAMES_BASE = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
 const SALAH_NAMES_FRIDAY = ['Fajr','Jummah','Asr','Maghrib','Isha'];
-const SALAH_NAMES = IS_FRIDAY ? SALAH_NAMES_FRIDAY : SALAH_NAMES_BASE;
+let SALAH_NAMES = IS_FRIDAY ? SALAH_NAMES_FRIDAY : SALAH_NAMES_BASE;
+
+function _dateFromKey(key){
+  const [y,m,d]=String(key).split('-').map(Number);
+  return new Date(y,m-1,d,12,0,0,0);
+}
+function _refreshActiveDateFlags(){
+  const d=_dateFromKey(activeDateKey);
+  IS_FRIDAY=d.getDay()===5;
+  IS_THURSDAY_EVE=d.getDay()===4;
+  IS_KAHF_DAY=IS_FRIDAY||IS_THURSDAY_EVE;
+  SALAH_NAMES=IS_FRIDAY?SALAH_NAMES_FRIDAY:SALAH_NAMES_BASE;
+}
 
 // ── Dhikr multi-select state ──
 let dhikrItems = []; // [{id, name, count}]
 let dhikrIdCounter = 0;
+const DHIKR_PREFS_KEY='spt_dhikr_preferences_v1';
+function _getDhikrPreferences(){try{const a=JSON.parse(localStorage.getItem(DHIKR_PREFS_KEY)||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string'&&x.trim()):[];}catch(e){return[];}}
+function _saveDhikrPreferences(){try{localStorage.setItem(DHIKR_PREFS_KEY,JSON.stringify([...new Set(dhikrItems.map(x=>x.name.trim()).filter(Boolean))]));}catch(e){}}
+function _restoreDhikrPreferences(){const names=_getDhikrPreferences();if(!names.length)return false;dhikrItems=names.map((name,i)=>({id:i+1,name,count:0}));dhikrIdCounter=dhikrItems.length;return true;}
 
 // ── Extra nafl rows state ──
 let extraNaflRows = []; // [{id, name, checked}]
@@ -1770,6 +1873,7 @@ loadSectionConfig();
 // ═══════════════════════════════════════════════════
 const SUPABASE_URL = 'https://ccpaacfzjolyvjnaqtnr.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_oG31xzHY6TBtglRzupiLTg_buUtriv4';
+const APP_AUTH_REDIRECT_URL = 'https://spiritual-tracker-app.pages.dev/';
 const supabaseClient = (window.supabase && SUPABASE_PUBLISHABLE_KEY)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
@@ -1816,9 +1920,9 @@ async function submitAccountAuth(mode='signin'){
   try{
     let result;
     if(mode==='signup'){
-      result=await supabaseClient.auth.signUp({email,password});
+      result=await supabaseClient.auth.signUp({email,password,options:{emailRedirectTo:APP_AUTH_REDIRECT_URL}});
     }else if(mode==='reset'){
-      result=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});
+      result=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:APP_AUTH_REDIRECT_URL});
     }else{
       result=await supabaseClient.auth.signInWithPassword({email,password});
     }
@@ -2123,7 +2227,9 @@ function applyModesUI(){
 // ═══════════════════════════════════════════════════
 function buildSalahRows(){
   const container = document.getElementById('salah-rows-container');
-  container.innerHTML = SALAH_NAMES.map((name, i) => {
+  if(!container)return;
+  const names=(Array.isArray(SALAH_NAMES)&&SALAH_NAMES.length===5)?SALAH_NAMES:SALAH_NAMES_BASE;
+  container.innerHTML = names.map((name, i) => {
     const id = 'salah-'+i;
     const isJummah = IS_FRIDAY && i === 1;
 
@@ -2393,7 +2499,7 @@ function renderHabits(){
 //  RESET
 // ═══════════════════════════════════════════════════
 function _origResetAll(){
-  if(!confirm("Reset today's tracker? History is preserved."))return;
+  if(!confirm(`Reset ${activeDateKey===todayKey()?"today":"this selected day"}’s tracker? History is preserved.`))return;
   for(let i=0;i<5;i++){const el=document.getElementById('salah-'+i);if(el)el.value='0';}
   ['tahajjud','ishraq','chast'].forEach(v=>{const el=document.getElementById('vol-'+v);if(el)el.checked=false;});
   // Reset dynamic nafl rows
@@ -2407,8 +2513,8 @@ function _origResetAll(){
   document.getElementById('trigger-text').value='';
   document.getElementById('music-free').checked=false;
   document.getElementById('music-banner').classList.remove('visible');
-  // Reset dynamic dhikr items
-  dhikrItems=[];dhikrIdCounter=0;renderDhikrItems();
+  // Reset today's counts but preserve the user's saved Dhikr/Azkar/Istighfar list.
+  dhikrItems=_getDhikrPreferences().map((name,i)=>({id:i+1,name,count:0}));dhikrIdCounter=dhikrItems.length;renderDhikrItems();
   customSectionState={};sectionConfig.custom.forEach(s=>customSectionState[s.id]={});sectionConfig.custom.forEach(renderCustomSectionTasks);
   document.getElementById('quran-read').checked=false;
   document.getElementById('quran-onepage').checked=false;
@@ -2427,7 +2533,7 @@ function _origResetAll(){
 //  SAVE DAY (Feature 7 — structured for cloud injection)
 // ═══════════════════════════════════════════════════
 function _origSaveDay(){
-  const key    = todayKey();
+  const key    = activeDateKey;
   const history= getStorage();
 
   const salahData={};
@@ -2475,6 +2581,7 @@ function _origSaveDay(){
     habitsCount:  habits.filter(h=>h.done).length,
     habitsMins:   habits.filter(h=>h.done).reduce((a,h)=>a+h.mins,0),
     habitNames:   habits.filter(h=>h.done).map(h=>h.name),
+    habits:       habits.map(h=>({...h})),
     reflection:{
       win:     document.getElementById('reflection-win')?.value||'',
       improve: document.getElementById('reflection-improve')?.value||'',
@@ -2493,7 +2600,7 @@ function _origSaveDay(){
 
   const btn=document.querySelector('.save-day-btn');
   btn.textContent="✅ Saved! Barak Allahu Feek 🌟"; btn.style.background='linear-gradient(135deg,#3ddc84,#2bc470)';
-  setTimeout(()=>{btn.textContent="💾 Save Today's Spiritual Progress"; btn.style.background='';},2500);
+  setTimeout(()=>{btn.textContent=activeDateKey===todayKey()?"💾 Save Today’s Spiritual Progress":"💾 Save Retrospective Entry"; btn.style.background='';},2500);
 }
 
 // Cloud sync hook — local save always succeeds first; cloud is opt-in.
@@ -2540,17 +2647,80 @@ const SWIPE_SECTION_NAMES=['Salah Tracker','Lowering of Gaze','Leaving Music','D
 const SWIPE_POSITION_KEY='spt_swipe_position_v1';
 let _swipeIndex=0,_swipeStartX=0,_swipeStartY=0,_swipeTracking=false,_swipeAnimating=false;
 function getSwipeSlides(){return Array.from(document.querySelectorAll('#daily-section-track .daily-section-slide')).filter(s=>s.style.display!=='none');}
-function saveSwipePosition(){try{localStorage.setItem(SWIPE_POSITION_KEY,JSON.stringify({date:todayKey(),index:_swipeIndex}));}catch(e){}}
-function restoreSwipePosition(){try{const raw=JSON.parse(localStorage.getItem(SWIPE_POSITION_KEY)||'null');if(raw&&raw.date===todayKey()&&Number.isInteger(raw.index))_swipeIndex=Math.max(0,raw.index);}catch(e){}}
-function clearSwipePosition(){try{localStorage.removeItem(SWIPE_POSITION_KEY);}catch(e){}}
+function _getSwipePositions(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(SWIPE_POSITION_KEY)||'null');
+    if(raw&&typeof raw==='object'){
+      // v1 compatibility: migrate the old single {date,index} record.
+      if(raw.date&&Number.isInteger(raw.index)) return {[raw.date]:raw.index};
+      if(!Array.isArray(raw)) return raw;
+    }
+  }catch(e){}
+  return {};
+}
+function saveSwipePosition(){
+  try{
+    const positions=_getSwipePositions();
+    positions[activeDateKey]=_swipeIndex;
+    localStorage.setItem(SWIPE_POSITION_KEY,JSON.stringify(positions));
+  }catch(e){}
+}
+function restoreSwipePosition(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(SWIPE_POSITION_KEY)||'null');
+    let index=null;
+    if(raw&&raw.date===activeDateKey&&Number.isInteger(raw.index)) index=raw.index; // old v1
+    else if(raw&&typeof raw==='object'&&Number.isInteger(raw[activeDateKey])) index=raw[activeDateKey];
+    if(index!==null)_swipeIndex=Math.max(0,index);
+  }catch(e){}
+}
+function clearSwipePosition(){
+  try{
+    const positions=_getSwipePositions();
+    delete positions[activeDateKey];
+    localStorage.setItem(SWIPE_POSITION_KEY,JSON.stringify(positions));
+  }catch(e){}
+}
 function updateStickyScore(total,maxPts){const ring=document.getElementById('sticky-ring'),num=document.getElementById('sticky-score-number'),pctEl=document.getElementById('sticky-score-pct'),C=2*Math.PI*15,pct=maxPts>0?Math.min(Math.max(total/maxPts,0),1):0;if(ring){ring.style.strokeDashoffset=C-pct*C;ring.style.stroke=total>0?'#f5c842':'#1f2535';}if(num)num.textContent=total;if(pctEl)pctEl.textContent=Math.round(pct*100)+'%';}
 function updateSwipeDots(slides=getSwipeSlides()){const dots=document.getElementById('swipe-dots');if(!dots)return;dots.innerHTML=slides.map((slide,i)=>`<button class="swipe-dot ${i===_swipeIndex?'active':''}" aria-label="Go to ${slide.dataset.sectionName||'section '+(i+1)}" aria-current="${i===_swipeIndex?'true':'false'}" onclick="goToSwipeSection(${i})"></button>`).join('');}
 function updateSwipeViewport(){const viewport=document.getElementById('daily-section-viewport'),track=document.getElementById('daily-section-track');if(!viewport||!track)return;const slides=getSwipeSlides();if(!slides.length)return;if(_swipeIndex>=slides.length)_swipeIndex=slides.length-1;if(_swipeIndex<0)_swipeIndex=0;requestAnimationFrame(()=>{const active=slides[_swipeIndex];viewport.style.height=active.offsetHeight+'px';track.style.transform=`translate3d(${-_swipeIndex*100}%,0,0)`;});updateSwipeDots(slides);const title=document.getElementById('sticky-section-title'),sub=document.getElementById('sticky-section-sub');if(title)title.textContent=slides[_swipeIndex].dataset.sectionName||SWIPE_SECTION_NAMES[_swipeIndex];if(sub)sub.textContent=`Section ${_swipeIndex+1} of ${slides.length} • Swipe to continue`;saveSwipePosition();}
 function goToSwipeSection(index){const slides=getSwipeSlides();if(!slides.length)return;_swipeIndex=Math.max(0,Math.min(index,slides.length-1));updateSwipeViewport();}
 function moveSwipeSection(direction){const slides=getSwipeSlides();if(!slides.length||_swipeAnimating)return;const next=_swipeIndex+direction;if(next<0||next>=slides.length)return;_swipeAnimating=true;_swipeIndex=next;updateSwipeViewport();setTimeout(()=>_swipeAnimating=false,380);}
 function initSwipeNavigation(){const viewport=document.getElementById('daily-section-viewport');if(!viewport)return;restoreSwipePosition();viewport.addEventListener('touchstart',e=>{if(e.touches.length!==1)return;if(e.target.closest('input,select,textarea,button,a,[contenteditable="true"]'))return;_swipeStartX=e.touches[0].clientX;_swipeStartY=e.touches[0].clientY;_swipeTracking=true;},{passive:true});viewport.addEventListener('touchend',e=>{if(!_swipeTracking||!e.changedTouches.length)return;_swipeTracking=false;const dx=e.changedTouches[0].clientX-_swipeStartX,dy=e.changedTouches[0].clientY-_swipeStartY;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.2)return;moveSwipeSection(dx<0?1:-1);},{passive:true});window.addEventListener('resize',()=>{if(document.getElementById('tab-daily')?.style.display!=='none')updateSwipeViewport();});updateSwipeViewport();}
-function initStickyScoreVisibility(){const hero=document.querySelector('#tab-daily .score-section'),bar=document.getElementById('sticky-score-bar');if(!hero||!bar)return;const sync=visible=>bar.classList.toggle('is-visible',!visible&&document.getElementById('tab-daily')?.style.display!=='none');if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{sync(entries[0].isIntersecting);},{threshold:0.05,rootMargin:'-8px 0px 0px 0px'});observer.observe(hero);}else{const onScroll=()=>sync(hero.getBoundingClientRect().bottom<=8);window.addEventListener('scroll',onScroll,{passive:true});onScroll();}}
-function refreshSwipeForModes(){document.querySelectorAll('#daily-section-track .daily-section-slide').forEach(slide=>{const key=slide.dataset.sectionKey;const exempt=slide.querySelector('.hayd-exempt');const hidden=!isSectionEnabled(key)||(exempt&&isHaydMode);slide.classList.toggle('is-hidden',!!hidden);slide.style.display=hidden?'none':'block';});const visible=getSwipeSlides();if(_swipeIndex>=visible.length)_swipeIndex=Math.max(0,visible.length-1);updateSwipeViewport();}
+let _sectionResizeObserver=null;
+function initSectionHeightObserver(){
+  const viewport=document.getElementById('daily-section-viewport'),track=document.getElementById('daily-section-track');
+  if(!viewport||!track||typeof ResizeObserver==='undefined')return;
+  if(_sectionResizeObserver)_sectionResizeObserver.disconnect();
+  _sectionResizeObserver=new ResizeObserver(()=>{
+    const slides=getSwipeSlides();
+    const active=slides[_swipeIndex];
+    if(!active)return;
+    const h=Math.ceil(active.getBoundingClientRect().height);
+    if(h>0 && Math.abs((parseFloat(viewport.style.height)||0)-h)>1) viewport.style.height=h+'px';
+  });
+  getSwipeSlides().forEach(slide=>_sectionResizeObserver.observe(slide));
+}
+
+function initStickyScoreVisibility(){
+  const hero=document.querySelector('#tab-daily .score-section'),bar=document.getElementById('sticky-score-bar'),nav=document.querySelector('#tab-daily .nav-tabs');
+  if(!hero||!bar)return;
+  const syncTop=()=>{
+    const navRect=nav?.getBoundingClientRect();
+    const navVisible=!!navRect&&navRect.bottom>0&&navRect.top<window.innerHeight;
+    const top=navVisible?Math.max(10,navRect.bottom+8):10;
+    bar.style.setProperty('--sticky-top',top+'px');
+  };
+  const sync=()=>{
+    syncTop();
+    const shouldShow=window.scrollY>Math.max(40,hero.getBoundingClientRect().bottom+window.scrollY-20);
+    bar.classList.toggle('is-visible',shouldShow&&document.getElementById('tab-daily')?.style.display!=='none');
+  };
+  window.addEventListener('scroll',sync,{passive:true});
+  window.addEventListener('resize',sync,{passive:true});
+  sync();
+}
+function refreshSwipeForModes(){document.querySelectorAll('#daily-section-track .daily-section-slide').forEach(slide=>{const key=slide.dataset.sectionKey;const exempt=slide.querySelector('.hayd-exempt');const hidden=!isSectionEnabled(key)||(exempt&&isHaydMode);slide.classList.toggle('is-hidden',!!hidden);slide.style.display=hidden?'none':'block';});const visible=getSwipeSlides();if(_swipeIndex>=visible.length)_swipeIndex=Math.max(0,visible.length-1);updateSwipeViewport();if(typeof initSectionHeightObserver==='function')initSectionHeightObserver();}
 const _phase1UpdateScore=updateScore;updateScore=function(){_phase1UpdateScore();updateStickyScore(calcTotalScore(),calcMaxScore());};
 
 // ═══════════════════════════════════════════════════
@@ -2794,7 +2964,13 @@ function triggerConfetti(){
 //  AUTOSAVE
 // ═══════════════════════════════════════════════════
 const DRAFT_KEY = 'spt_draft_v2';
+const DRAFTS_KEY = 'spt_drafts_v1';
 let _asTimer = null;
+
+function _getDraftMap(){try{const m=JSON.parse(localStorage.getItem(DRAFTS_KEY)||'{}');return m&&typeof m==='object'?m:{}}catch(e){return{}}}
+function _getDateDraft(dateKey){const m=_getDraftMap();return m[dateKey]||null}
+function _setDateDraft(dateKey,draft){try{const m=_getDraftMap();m[dateKey]=draft;localStorage.setItem(DRAFTS_KEY,JSON.stringify(m));}catch(e){}}
+
 
 function _asShowSaving(){
   const dot=document.getElementById('as-dot'),txt=document.getElementById('as-text');
@@ -2816,7 +2992,7 @@ function saveDraft(){
   const salahVals={};
   for(let i=0;i<5;i++){const el=document.getElementById('salah-'+i);if(el)salahVals[i]=el.value;}
   const draft={
-    date:todayKey(),
+    date:activeDateKey,
     salahVals,
     voluntary:{
       tahajjud:!!document.getElementById('vol-tahajjud')?.checked,
@@ -2845,20 +3021,25 @@ function saveDraft(){
     reflectionImprove:document.getElementById('reflection-improve')?.value||'',
     isSistersMode,
     isHaydMode,
+    savedAt:new Date().toISOString(),
   };
   try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
+  _setDateDraft(activeDateKey,draft);
   setTimeout(_asShowSaved,350);
 }
 
 function triggerAutosave(){
+  if(typeof _loadingActiveDate!=='undefined' && _loadingActiveDate)return;
   clearTimeout(_asTimer);
   _asTimer=setTimeout(saveDraft,600);
 }
 
 function restoreDraft(){
   let draft=null;
-  try{draft=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){return false;}
-  if(!draft||draft.date!==todayKey()){localStorage.removeItem(DRAFT_KEY);return false;}
+  try{draft=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){}
+  if(!draft||draft.date!==activeDateKey){draft=_getDateDraft(activeDateKey);}
+  if(!draft||draft.date!==activeDateKey)return false;
+  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
 
   // Restore modes
   if(draft.isSistersMode !== undefined){
@@ -2991,7 +3172,7 @@ function exportBackup(){
   try{
     const history=getStorage();
     const draft=localStorage.getItem('spt_draft_v2')||null;
-    const payload={_meta:{app:'Spiritual Tracker',version:'3.0.0-supabase',exported:new Date().toISOString()},spt_v2:history,spt_draft_v2:draft?JSON.parse(draft):null};
+    const payload={_meta:{app:'Spiritual Tracker',version:'3.1.0-clean-integrated',exported:new Date().toISOString()},spt_v2:history,spt_draft_v2:draft?JSON.parse(draft):null};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
@@ -3203,12 +3384,14 @@ function addDhikrCustom(){
 function _addDhikrItem(name){
   const id = ++dhikrIdCounter;
   dhikrItems.push({id, name, count:0});
+  _saveDhikrPreferences();
   renderDhikrItems();
   updateScore();
 }
 
 function removeDhikrItem(id){
   dhikrItems = dhikrItems.filter(x=>x.id!==id);
+  _saveDhikrPreferences();
   renderDhikrItems();
   updateScore();
 }
@@ -3331,7 +3514,27 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(wnOverlay) wnOverlay.addEventListener('click',e=>{ if(e.target===wnOverlay) closeWhatsNew(); });
   const reminderOverlay = document.getElementById('reminder-overlay');
   if(reminderOverlay) reminderOverlay.addEventListener('click',e=>{ if(e.target===reminderOverlay) closeIslamicReminder(); });
+  const guidanceReaderOverlay=document.getElementById('daily-guidance-reader-overlay');
+  if(guidanceReaderOverlay) guidanceReaderOverlay.addEventListener('click',e=>{if(e.target===guidanceReaderOverlay)closeDailyGuidanceReader();});
 });
+
+function openDailyGuidanceReader(type){
+  const ai=(Number(activeDateKey.replace(/-/g,''))+_dailyGuidanceOffset)%DAILY_AYAHS.length;
+  const hi=(Number(activeDateKey.replace(/-/g,''))+_dailyGuidanceOffset)%DAILY_GUIDANCE_HADITHS.length;
+  const item=type==='hadith'?DAILY_GUIDANCE_HADITHS[hi]:DAILY_AYAHS[ai];
+  const title=document.getElementById('dgr-title'),sub=document.getElementById('dgr-sub'),arabic=document.getElementById('dgr-arabic'),trans=document.getElementById('dgr-trans'),ref=document.getElementById('dgr-ref'),note=document.getElementById('dgr-note'),overlay=document.getElementById('daily-guidance-reader-overlay');
+  if(!item||!overlay)return;
+  const fullArabic=item.fullArabic||item.arabic;
+  const fullTrans=item.fullTrans||item.trans;
+  title.textContent=type==='hadith'?'📜 Complete Hadith':'📖 Complete Qur’an Ayah';
+  sub.textContent=type==='hadith'?'The complete narration text available in this tracker.':'The complete ayah corresponding to today’s selected reference.';
+  arabic.textContent=fullArabic;
+  trans.textContent=fullTrans;
+  ref.textContent='— '+item.ref;
+  note.textContent=type==='hadith'?'Hadith text is presented in the fuller narration stored for this reminder.':'This is the complete ayah itself; the shorter card is only a preview for the daily tracker.';
+  overlay.classList.add('open'); document.body.style.overflow='hidden';
+}
+function closeDailyGuidanceReader(){const o=document.getElementById('daily-guidance-reader-overlay');if(o)o.classList.remove('open');if(!document.querySelector('.reminder-overlay.open,.quran-reader-overlay.open'))document.body.style.overflow='';}
 
 // ═══════════════════════════════════════════════════
 //  ISLAMIC DAILY REMINDER — first-open heart reminder
@@ -3346,7 +3549,50 @@ const ISLAMIC_REMINDERS = [
   {type:'Hadith', title:'Small, but consistent 🤲', arabic:'أَحَبُّ الْأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ', text:'The most beloved deeds to Allah are those that are most consistent, even if small.', source:'Sahih al-Bukhari 6464; Sahih Muslim 783'},
   {type:'Hadith', title:'Begin with the right intention ✨', arabic:'إِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ', text:'Actions are judged by intentions, and every person will have what they intended.', source:'Sahih al-Bukhari 1; Sahih Muslim 1907'},
   {type:'Qur’an', title:'Remember your purpose 🕌', arabic:'وَمَا خَلَقْتُ الْجِنَّ وَالْإِنسَ إِلَّا لِيَعْبُدُونِ', text:'I did not create jinn and humans except to worship Me.', source:'Qur’an 51:56'},
-  {type:'Qur’an', title:'Trust the One who knows 🌤️', arabic:'وَعَسَىٰ أَن تَكْرَهُوا شَيْئًا وَهُوَ خَيْرٌ لَّكُمْ', text:'Perhaps you dislike something and it is good for you; Allah knows and you do not know.', source:'Qur’an 2:216'}
+  {type:'Qur’an', title:'Trust the One who knows 🌤️', arabic:'وَعَسَىٰ أَن تَكْرَهُوا شَيْئًا وَهُوَ خَيْرٌ لَّكُمْ', text:'Perhaps you dislike something and it is good for you; Allah knows and you do not know.', source:'Qur’an 2:216'},
+
+  {type:'Qur’an', title:'You are not asked beyond your capacity 🤍', arabic:'لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا', text:'Allah does not burden a soul beyond what it can bear.', source:'Qur’an 2:286'},
+  {type:'Qur’an', title:'Do not weaken 🌿', arabic:'وَلَا تَهِنُوا وَلَا تَحْزَنُوا', text:'Do not lose heart and do not grieve; keep your faith and continue forward.', source:'Qur’an 3:139'},
+  {type:'Qur’an', title:'Seek help through patience and prayer 🕌', arabic:'وَاسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ', text:'Seek help through patience and prayer. Allah is with the patient.', source:'Qur’an 2:153'},
+  {type:'Qur’an', title:'Allah is near 🤲', arabic:'فَإِنِّي قَرِيبٌ', text:'When My servants ask about Me, surely I am near.', source:'Qur’an 2:186'},
+  {type:'Qur’an', title:'Remember Allah and be remembered 🌙', arabic:'فَاذْكُرُونِي أَذْكُرْكُمْ', text:'Remember Me; I will remember you.', source:'Qur’an 2:152'},
+  {type:'Qur’an', title:'Change begins within 🌱', arabic:'إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنْفُسِهِمْ', text:'Allah does not change the condition of a people until they change what is within themselves.', source:'Qur’an 13:11'},
+  {type:'Qur’an', title:'Taqwa opens a way out 🚪', arabic:'وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا', text:'Whoever is mindful of Allah, He will make a way out for them.', source:'Qur’an 65:2'},
+  {type:'Qur’an', title:'Patience has no small reward 🌟', arabic:'إِنَّمَا يُوَفَّى الصَّابِرُونَ أَجْرَهُم بِغَيْرِ حِسَابٍ', text:'The patient will be given their reward without measure.', source:'Qur’an 39:10'},
+  {type:'Qur’an', title:'A good life is possible 🌿', arabic:'فَلَنُحْيِيَنَّهُ حَيَاةً طَيِّبَةً', text:'Whoever believes and does good, Allah promises a good life.', source:'Qur’an 16:97'},
+  {type:'Qur’an', title:'Strive, and guidance follows 🌱', arabic:'وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا', text:'Strive sincerely for Allah, and He promises to guide you to His ways.', source:'Qur’an 29:69'},
+  {type:'Qur’an', title:'Allah knows you completely 🤍', arabic:'وَلَقَدْ خَلَقْنَا الْإِنسَانَ وَنَعْلَمُ مَا تُوَسْوِسُ بِهِ نَفْسُهُ', text:'Allah created you and knows even what your soul whispers within.', source:'Qur’an 50:16'},
+  {type:'Qur’an', title:'He is with you wherever you are 🌍', arabic:'وَهُوَ مَعَكُمْ أَيْنَ مَا كُنتُمْ', text:'Allah is with you wherever you may be.', source:'Qur’an 57:4'},
+  {type:'Qur’an', title:'Do not let the dunya deceive you 🌎', arabic:'اعْلَمُوا أَنَّمَا الْحَيَاةُ الدُّنْيَا لَعِبٌ وَلَهْوٌ', text:'Know that the life of this world is play, amusement, adornment and competition.', source:'Qur’an 57:20'},
+  {type:'Qur’an', title:'Prepare for tomorrow ⏳', arabic:'وَلْتَنظُرْ نَفْسٌ مَّا قَدَّمَتْ لِغَدٍ', text:'Let every soul look to what it has sent ahead for tomorrow.', source:'Qur’an 59:18'},
+  {type:'Qur’an', title:'Do what you can, sincerely 🤲', arabic:'فَاتَّقُوا اللَّهَ مَا اسْتَطَعْتُمْ', text:'Be mindful of Allah as much as you are able.', source:'Qur’an 64:16'},
+  {type:'Qur’an', title:'Allah loves those who repent 💧', arabic:'إِنَّ اللَّهَ يُحِبُّ التَّوَّابِينَ', text:'Indeed, Allah loves those who constantly repent.', source:'Qur’an 2:222'},
+  {type:'Qur’an', title:'Allah loves the patient 🌱', arabic:'وَاللَّهُ يُحِبُّ الصَّابِرِينَ', text:'Allah loves those who remain patient.', source:'Qur’an 3:146'},
+  {type:'Qur’an', title:'Do not follow what you do not know 🧠', arabic:'وَلَا تَقْفُ مَا لَيْسَ لَكَ بِهِ عِلْمٌ', text:'Do not pursue that of which you have no knowledge.', source:'Qur’an 17:36'},
+  {type:'Qur’an', title:'Guard your gaze 👁️', arabic:'قُل لِّلْمُؤْمِنِينَ يَغُضُّوا مِنْ أَبْصَارِهِمْ', text:'Tell the believing men to lower their gaze and guard their chastity.', source:'Qur’an 24:30'},
+  {type:'Qur’an', title:'Prayer deserves your full attention 🕌', arabic:'قَدْ أَفْلَحَ الْمُؤْمِنُونَ ۝ الَّذِينَ هُمْ فِي صَلَاتِهِمْ خَاشِعُونَ', text:'Successful are the believers — those who are humble and attentive in their prayer.', source:'Qur’an 23:1–2'},
+  {type:'Qur’an', title:'Purify the soul 🌱', arabic:'قَدْ أَفْلَحَ مَن زَكَّاهَا', text:'Successful is the one who purifies the soul.', source:'Qur’an 91:9'},
+  {type:'Qur’an', title:'Give for Allah, and He eases the way 🤍', arabic:'فَأَمَّا مَن أَعْطَىٰ وَاتَّقَىٰ ۝ وَصَدَّقَ بِالْحُسْنَىٰ ۝ فَسَنُيَسِّرُهُ لِلْيُسْرَىٰ', text:'Whoever gives, is mindful of Allah and believes in the best — We will ease them toward ease.', source:'Qur’an 92:5–7'},
+  {type:'Qur’an', title:'Mercy begins with how you treat people ❤️', arabic:'وَاخْفِضْ لَهُمَا جَنَاحَ الذُّلِّ مِنَ الرَّحْمَةِ', text:'Lower to your parents the wing of humility out of mercy.', source:'Qur’an 17:24'},
+  {type:'Qur’an', title:'Keep your tongue clean 🤫', arabic:'وَقُولُوا لِلنَّاسِ حُسْنًا', text:'Speak good words to people.', source:'Qur’an 2:83'},
+  {type:'Qur’an', title:'Do not let anger lead you ⚖️', arabic:'وَالْكَاظِمِينَ الْغَيْظَ وَالْعَافِينَ عَنِ النَّاسِ', text:'The righteous restrain anger and pardon people.', source:'Qur’an 3:134'},
+  {type:'Qur’an', title:'Be grateful for what you have 🌾', arabic:'لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ', text:'If you are grateful, Allah promises to increase you.', source:'Qur’an 14:7'},
+  {type:'Qur’an', title:'Do not forget Allah in ease or hardship 🌙', arabic:'وَاذْكُر رَّبَّكَ إِذَا نَسِيتَ', text:'Remember your Lord when you forget.', source:'Qur’an 18:24'},
+  {type:'Hadith', title:'Allah loves the strong believer 💪', arabic:'الْمُؤْمِنُ الْقَوِيُّ خَيْرٌ وَأَحَبُّ إِلَى اللَّهِ مِنَ الْمُؤْمِنِ الضَّعِيفِ', text:'The strong believer is better and more beloved to Allah than the weak believer, while there is good in both.', source:'Sahih Muslim 2664'},
+  {type:'Hadith', title:'Return to Allah with joy 🤍', arabic:'لَلَّهُ أَشَدُّ فَرَحًا بِتَوْبَةِ عَبْدِهِ', text:'Allah is more pleased with a servant’s repentance than someone who finds a lost mount in a desert.', source:'Sahih Muslim 2747a'},
+  {type:'Hadith', title:'Keep the five prayers close 🕌', arabic:'الصَّلَاةُ الْخَمْسُ ... كَفَّارَةٌ لِمَا بَيْنَهُنَّ', text:'The five daily prayers are an expiation for what occurs between them, provided major sins are avoided.', source:'Sahih Muslim 233a'},
+  {type:'Hadith', title:'Protect Fajr and Asr 🌅', arabic:'مَنْ صَلَّى الْبَرْدَيْنِ دَخَلَ الْجَنَّةَ', text:'Whoever prays the two cool prayers — Fajr and Asr — will enter Paradise.', source:'Sahih al-Bukhari 574'},
+  {type:'Hadith', title:'Let your dhikr be abundant 📿', arabic:'مَنْ قَالَ سُبْحَانَ اللَّهِ وَبِحَمْدِهِ فِي يَوْمٍ مِائَةَ مَرَّةٍ', text:'Whoever says “Subhan Allah wa bihamdihi” one hundred times in a day will have sins forgiven, even if like the foam of the sea.', source:'Sahih al-Bukhari 6405'},
+  {type:'Hadith', title:'Kindness is never wasted 🌿', arabic:'وَالْكَلِمَةُ الطَّيِّبَةُ صَدَقَةٌ', text:'A good word is charity, and every step taken toward prayer is charity.', source:'Sahih al-Bukhari 2989; Sahih Muslim 1009'},
+  {type:'Hadith', title:'Make things easy for others 🤲', arabic:'وَمَنْ يَسَّرَ عَلَى مُعْسِرٍ يَسَّرَ اللَّهُ عَلَيْهِ', text:'Whoever makes things easy for someone in difficulty, Allah will make things easy for them in this world and the Hereafter.', source:'Sahih Muslim 2699'},
+  {type:'Hadith', title:'Speak good or remain silent 🕊️', arabic:'فَلْيَقُلْ خَيْرًا أَوْ لِيَصْمُتْ', text:'Whoever believes in Allah and the Last Day should speak good or remain silent.', source:'Sahih al-Bukhari 6018; Sahih Muslim 47'},
+  {type:'Hadith', title:'Do not become angry 🌿', arabic:'لَا تَغْضَبْ', text:'A man asked the Prophet ﷺ for advice repeatedly, and he said: “Do not become angry.”', source:'Sahih al-Bukhari 6116'},
+  {type:'Hadith', title:'Mercy brings mercy ❤️', arabic:'مَنْ لَا يَرْحَمْ لَا يُرْحَمْ', text:'Whoever does not show mercy will not be shown mercy.', source:'Sahih al-Bukhari 6013; Sahih Muslim 2319'},
+  {type:'Hadith', title:'Seek knowledge with sincerity 📖', arabic:'مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا', text:'Whoever follows a path seeking knowledge, Allah makes easy for them a path to Paradise.', source:'Sahih Muslim 2699'},
+  {type:'Hadith', title:'Allah looks at the heart and deeds 🤍', arabic:'إِنَّ اللَّهَ لَا يَنْظُرُ إِلَى صُوَرِكُمْ وَأَمْوَالِكُمْ وَلَكِنْ يَنْظُرُ إِلَى قُلُوبِكُمْ وَأَعْمَالِكُمْ', text:'Allah does not look at your bodies or your wealth, but at your hearts and deeds.', source:'Sahih Muslim 2564'},
+  {type:'Hadith', title:'A believer supports another believer 🫱🏻‍🫲🏽', arabic:'الْمُؤْمِنُ لِلْمُؤْمِنِ كَالْبُنْيَانِ', text:'A believer to another believer is like a building, each part strengthening the other.', source:'Sahih al-Bukhari 481'},
+  {type:'Hadith', title:'Make room for forgiveness 🌙', arabic:'مَنْ لَا يَرْحَمْ لَا يُرْحَمْ', text:'Mercy is not weakness. The Prophet ﷺ taught that the one who does not show mercy will not be shown mercy.', source:'Sahih al-Bukhari 6013; Sahih Muslim 2319'},
+  {type:'Hadith', title:'The best of you learn and teach Qur’an 📖', arabic:'خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ', text:'The best of you are those who learn the Qur’an and teach it.', source:'Sahih al-Bukhari 5027'}
 ];
 let _reminderIdx = 0;
 let _reminderShown = false;
@@ -3355,8 +3601,10 @@ function _dailyReminderStartIndex(){
   const seed = Number(todayKey().replace(/-/g,'')) || 0;
   return seed % ISLAMIC_REMINDERS.length;
 }
-function renderIslamicReminder(){
+function renderIslamicReminder(isReturningToday=false){
   const r=ISLAMIC_REMINDERS[_reminderIdx];
+  const primary=document.getElementById('reminder-primary-btn');
+  if(primary) primary.textContent=isReturningToday?'Continue':'Begin My Day';
   const type=document.querySelector('.reminder-kicker');
   const title=document.getElementById('reminder-title');
   const arabic=document.getElementById('reminder-arabic');
@@ -3374,7 +3622,10 @@ function openIslamicReminder(){
   const o=document.getElementById('reminder-overlay');
   if(!o)return;
   if(!_reminderShown){_reminderIdx=_dailyReminderStartIndex();_reminderShown=true;}
-  renderIslamicReminder();
+  let returningToday=false;
+  try{returningToday=localStorage.getItem('spt_reminder_last_open_date')===todayKey();}catch(e){}
+  renderIslamicReminder(returningToday);
+  try{localStorage.setItem('spt_reminder_last_open_date',todayKey());}catch(e){}
   o.classList.add('open');
   document.body.style.overflow='hidden';
 }
@@ -3388,9 +3639,8 @@ function showAnotherIslamicReminder(){
   renderIslamicReminder();
 }
 function maybeShowIslamicReminder(){
-  const key='spt_islamic_reminder_seen_'+todayKey();
-  if(localStorage.getItem(key))return;
-  localStorage.setItem(key,'1');
+  // The Islamic reminder is intentionally shown on every fresh page load.
+  // Do not persist a 'seen today' flag: revisiting the tracker should still begin with remembrance.
   setTimeout(()=>openIslamicReminder(),650);
 }
 
@@ -3707,15 +3957,208 @@ function maybeShowRecommendations(){
   },2500);
 }
 
+
+// ═══════════════════════════════════════════════════
+//  RETROSPECTIVE ENTRY — clean integration
+// ═══════════════════════════════════════════════════
+let _loadingActiveDate=false;
+
+function updateActiveDateDisplay(){
+  const d=_dateFromKey(activeDateKey);
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const display=document.getElementById('date-display');
+  if(display)display.textContent=`${dayNames[d.getDay()]}, ${monthNames[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`;
+
+  const input=document.getElementById('retro-date');
+  if(input){input.value=activeDateKey;input.max=todayKey();}
+
+  const label=document.getElementById('date-mode-label');
+  const status=document.getElementById('retro-date-status');
+  const next=document.getElementById('retro-next-btn');
+  const isToday=activeDateKey===todayKey();
+  if(label)label.textContent=isToday?'Today':'Past Day';
+  if(status){
+    const exists=!!getStorage()[activeDateKey];
+    status.textContent=isToday?'You’re tracking today.':(exists?'Editing a saved entry for this date.':'Retrospective mode — complete this missed day, then save it.');
+    status.classList.toggle('active',!isToday);
+  }
+  if(next){next.disabled=isToday;next.style.opacity=isToday?'.35':'1';}
+  const reset=document.querySelector('.reset-btn');
+  if(reset)reset.textContent=isToday?'↺ Reset Day':'↺ Reset Selected Day';
+  const save=document.querySelector('.save-day-btn');
+  if(save&&!save.classList.contains('loading')){
+    save.textContent=isToday?'💾 Save Today’s Spiritual Progress':'💾 Save Retrospective Entry';
+  }
+}
+
+function _emptyTrackerForActiveDate(){
+  for(let i=0;i<5;i++){const el=document.getElementById('salah-'+i);if(el)el.value='0';}
+  ['tahajjud','ishraq','chast'].forEach(v=>{const el=document.getElementById('vol-'+v);if(el)el.checked=false;});
+  extraNaflRows=[];naflIdCounter=0;renderNaflRows();
+  const kh=document.getElementById('khushu-select');if(kh)kh.value='';
+  gazeVal='nottracked';
+  document.querySelectorAll('.gaze-option').forEach(o=>o.classList.remove('selected-success','selected-nottracked','selected-compromised','selected-relapse'));
+  document.querySelector('.gaze-option[data-val="nottracked"]')?.classList.add('selected-nottracked');
+  ['nottracked','success','compromised','relapse'].forEach(v=>{const el=document.getElementById('rd-'+v);if(el)el.className='radio-dot';});
+  const tw=document.getElementById('trigger-wrap');if(tw)tw.style.display='none';
+  const trig=document.getElementById('trigger-text');if(trig)trig.value='';
+  const music=document.getElementById('music-free');if(music)music.checked=false;
+  document.getElementById('music-banner')?.classList.remove('visible');
+  dhikrItems=_getDhikrPreferences().map((name,i)=>({id:i+1,name,count:0}));dhikrIdCounter=dhikrItems.length;renderDhikrItems();
+  customSectionState={};
+  sectionConfig.custom.forEach(s=>customSectionState[s.id]={});
+  sectionConfig.custom.forEach(renderCustomSectionTasks);
+  ['quran-read','quran-onepage','quran-nightly','fast-done'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  const qk=document.getElementById('quran-kahf');if(qk)qk.checked=false;
+  const qm=document.getElementById('quran-mins');if(qm)qm.value='';
+  const qp=document.getElementById('quran-pages');if(qp)qp.value='';
+  habits=[];habitIdCounter=0;renderHabits();
+  const rw=document.getElementById('reflection-win');if(rw)rw.value='';
+  const ri=document.getElementById('reflection-improve');if(ri)ri.value='';
+}
+
+function _historyEntryToDraft(entry){
+  if(!entry)return null;
+  return {
+    date:activeDateKey,
+    salahVals:Object.fromEntries(SALAH_NAMES.map((name,i)=>[i,String(entry.salahData?.[name]??0)])),
+    voluntary:{tahajjud:!!entry.voluntary?.tahajjud,ishraq:!!entry.voluntary?.ishraq,chast:!!entry.voluntary?.chast},
+    extraNaflRows:(entry.voluntary?.extraNafl||[]).map((r,i)=>({id:i+1,name:r.name||'',checked:!!r.checked})),
+    naflIdCounter:(entry.voluntary?.extraNafl||[]).length,
+    khushu:entry.khushu||'',
+    gazeVal:entry.gaze?.value||entry.gaze||'nottracked',
+    trigger:entry.trigger||entry.gaze?.trigger||'',
+    musicFree:!!entry.musicFree,
+    dhikrItems:Array.isArray(entry.dhikrData)?entry.dhikrData.map((x,i)=>({id:i+1,name:x.name||'',count:Number(x.count)||0})):[],
+    dhikrIdCounter:Array.isArray(entry.dhikrData)?entry.dhikrData.length:0,
+    customSectionData:entry.customSectionData||{},
+    quranRead:!!entry.quran?.done,
+    quranOnepage:!!entry.quran?.onepage,
+    quranMins:entry.quran?.mins??'',
+    quranPages:entry.quran?.pages??'',
+    quranKahf:!!entry.quran?.kahf,
+    quranNightly:!!entry.quran?.nightly,
+    fast:!!entry.fast,
+    habits:Array.isArray(entry.habits)?entry.habits.map((h,i)=>({...h,id:h.id||i+1})):((entry.habitNames||[]).map((name,i)=>({id:i+1,name,done:true,mins:0}))),
+    habitIdCounter:Array.isArray(entry.habits)?entry.habits.length:(entry.habitNames||[]).length,
+    reflectionWin:entry.reflection?.win||'',
+    reflectionImprove:entry.reflection?.improve||'',
+    isSistersMode:!!entry.isSistersMode,
+    isHaydMode:!!entry.isHaydMode
+  };
+}
+
+function _applyDraftForActiveDate(draft){
+  if(!draft)return false;
+  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
+  return restoreDraft();
+}
+
+function loadActiveDate(){
+  _loadingActiveDate=true;
+  clearTimeout(_asTimer);
+  _swipeIndex=0;
+  restoreSwipePosition();
+
+  _refreshActiveDateFlags();
+  _emptyTrackerForActiveDate();
+  buildSalahRows();
+  updateKahfUI();
+
+  const jummah=document.getElementById('jummah-note');
+  if(jummah)jummah.classList.toggle('visible',IS_FRIDAY);
+
+  const kd=document.getElementById('kahf-desc');
+  if(IS_FRIDAY && kd && !wasKahfCompletedThursday()){
+    kd.textContent="🕌 It's Friday — special reward for reading Surah Kahf today!";
+  }else if(IS_THURSDAY_EVE && kd){
+    kd.textContent='🌙 Thursday evening — great time to start Surah Kahf!';
+  }
+
+  renderDailyGuidance();
+
+  const entry=getStorage()[activeDateKey];
+  const dateDraft=_getDateDraft(activeDateKey);
+  if(dateDraft){
+    _applyDraftForActiveDate(dateDraft);
+  }else if(entry){
+    _applyDraftForActiveDate(_historyEntryToDraft(entry));
+  }else{
+    applyModesUI();
+    updateScore();
+  }
+
+  _loadingActiveDate=false;
+  updateActiveDateDisplay();
+  updateScore();
+  refreshSwipeForModes();
+  setTimeout(saveDraft,50);
+}
+
+function selectActiveDate(value){
+  if(!value)return;
+  const max=todayKey();
+  if(value>max)value=max;
+  if(value===activeDateKey){updateActiveDateDisplay();return;}
+  if(!_loadingActiveDate)saveDraft();
+  activeDateKey=value;
+  loadActiveDate();
+}
+
+function moveActiveDate(delta){
+  const d=_dateFromKey(activeDateKey);
+  d.setDate(d.getDate()+delta);
+  const key=getDateKey(d);
+  if(key<=todayKey())selectActiveDate(key);
+}
+
+function goToToday(){selectActiveDate(todayKey());}
+
+const DAILY_GUIDANCE_HADITHS = [
+  {arabic:'إِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ',trans:'Actions are judged by intentions, and every person will have what they intended.',fullArabic:'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى، فَمَنْ كَانَتْ هِجْرَتُهُ إِلَى دُنْيَا يُصِيبُهَا أَوْ إِلَى امْرَأَةٍ يَنْكِحُهَا فَهِجْرَتُهُ إِلَى مَا هَاجَرَ إِلَيْهِ.',fullTrans:'The reward of deeds depends upon the intentions and every person will get the reward according to what he has intended. So whoever emigrated for worldly benefits or for a woman to marry, his emigration was for what he emigrated for.',ref:'Sahih al-Bukhari 1; Sahih Muslim 1907'},
+  {arabic:'أَحَبُّ الْأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ',trans:'The most beloved deeds to Allah are those that are most consistent, even if small.',fullArabic:'سَدِّدُوا وَقَارِبُوا، وَاعْلَمُوا أَنْ لَنْ يُدْخِلَ أَحَدَكُمْ عَمَلُهُ الْجَنَّةَ، وَأَنَّ أَحَبَّ الأَعْمَالِ أَدْوَمُهَا إِلَى اللَّهِ، وَإِنْ قَلَّ.',fullTrans:'Do good deeds properly, sincerely and moderately and know that your deeds will not make you enter Paradise, and that the most beloved deed to Allah is the most regular and constant even if it were little.',ref:'Sahih al-Bukhari 6464; Sahih Muslim 783'},
+  {arabic:'وَالصَّلَاةُ نُورٌ',trans:'Prayer is light.',fullArabic:'الطُّهُورُ شَطْرُ الإِيمَانِ، وَالْحَمْدُ لِلَّهِ تَمْلَأُ الْمِيزَانَ، وَسُبْحَانَ اللَّهِ وَالْحَمْدُ لِلَّهِ تَمْلَآنِ — أَوْ تَمْلَأُ — مَا بَيْنَ السَّمَاوَاتِ وَالأَرْضِ، وَالصَّلَاةُ نُورٌ، وَالصَّدَقَةُ بُرْهَانٌ، وَالصَّبْرُ ضِيَاءٌ، وَالْقُرْآنُ حُجَّةٌ لَكَ أَوْ عَلَيْكَ، كُلُّ النَّاسِ يَغْدُو فَبَائِعٌ نَفْسَهُ فَمُعْتِقُهَا أَوْ مُوبِقُهَا.',fullTrans:'Purification is half of faith. Alhamdulillah fills the Scale, and SubhanAllah and Alhamdulillah fill what is between the heavens and the earth. Prayer is light, charity is proof, patience is illumination, and the Qur’an is a proof for you or against you. Every person goes out in the morning and sells himself, thereby either freeing himself or destroying himself.',ref:'Sahih Muslim 223'},
+  {arabic:'لَا تَغْضَبْ',trans:'Do not become angry.',fullArabic:'جَاءَ رَجُلٌ إِلَى النَّبِيِّ ﷺ فَقَالَ: أَوْصِنِي. قَالَ: لَا تَغْضَبْ. فَرَدَّدَ مِرَارًا، قَالَ: لَا تَغْضَبْ.',fullTrans:'A man came to the Prophet ﷺ and said, “Advise me.” He said, “Do not become angry.” The man repeated his request several times, and he said, “Do not become angry.”',ref:'Sahih al-Bukhari 6116'},
+  {arabic:'فَلْيَقُلْ خَيْرًا أَوْ لِيَصْمُتْ',trans:'Whoever believes in Allah and the Last Day should speak good or remain silent.',fullArabic:'مَنْ كَانَ يُؤْمِنُ بِاللَّهِ وَالْيَوْمِ الْآخِرِ فَلْيَقُلْ خَيْرًا أَوْ لِيَصْمُتْ، وَمَنْ كَانَ يُؤْمِنُ بِاللَّهِ وَالْيَوْمِ الْآخِرِ فَلْيُكْرِمْ جَارَهُ، وَمَنْ كَانَ يُؤْمِنُ بِاللَّهِ وَالْيَوْمِ الْآخِرِ فَلْيُكْرِمْ ضَيْفَهُ.',fullTrans:'Whoever believes in Allah and the Last Day should speak good or remain silent; whoever believes in Allah and the Last Day should honor his neighbor; and whoever believes in Allah and the Last Day should honor his guest.',ref:'Sahih al-Bukhari 6018; Sahih Muslim 47'},
+  {arabic:'مَنْ لَا يَرْحَمْ لَا يُرْحَمْ',trans:'Whoever does not show mercy will not be shown mercy.',fullArabic:'مَنْ لَا يَرْحَمْ لَا يُرْحَمْ.',fullTrans:'Whoever does not show mercy will not be shown mercy.',ref:'Sahih al-Bukhari 6013; Sahih Muslim 2319'},
+  {arabic:'الطُّهُورُ شَطْرُ الْإِيمَانِ',trans:'Purification is half of faith.',fullArabic:'الطُّهُورُ شَطْرُ الْإِيمَانِ، وَالْحَمْدُ لِلَّهِ تَمْلَأُ الْمِيزَانَ، وَسُبْحَانَ اللَّهِ وَالْحَمْدُ لِلَّهِ تَمْلَآنِ — أَوْ تَمْلَأُ — مَا بَيْنَ السَّمَاوَاتِ وَالْأَرْضِ، وَالصَّلَاةُ نُورٌ، وَالصَّدَقَةُ بُرْهَانٌ، وَالصَّبْرُ ضِيَاءٌ، وَالْقُرْآنُ حُجَّةٌ لَكَ أَوْ عَلَيْكَ، كُلُّ النَّاسِ يَغْدُو فَبَائِعٌ نَفْسَهُ فَمُعْتِقُهَا أَوْ مُوبِقُهَا.',fullTrans:'Purification is half of faith. “Alhamdulillah” fills the Scale. “SubhanAllah” and “Alhamdulillah” fill, or fill, what is between the heavens and the earth. Prayer is light, charity is proof, patience is illumination, and the Qur’an is a proof for you or against you.',ref:'Sahih Muslim 223'},
+  {arabic:'مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ',trans:'Whoever follows a path seeking knowledge, Allah will make easy for him a path to Paradise.',fullArabic:'مَنْ نَفَّسَ عَنْ مُؤْمِنٍ كُرْبَةً مِنْ كُرَبِ الدُّنْيَا نَفَّسَ اللَّهُ عَنْهُ كُرْبَةً مِنْ كُرَبِ يَوْمِ الْقِيَامَةِ، وَمَنْ يَسَّرَ عَلَى مُعْسِرٍ يَسَّرَ اللَّهُ عَلَيْهِ فِي الدُّنْيَا وَالْآخِرَةِ، وَمَنْ سَتَرَ مُسْلِمًا سَتَرَهُ اللَّهُ فِي الدُّنْيَا وَالْآخِرَةِ، وَاللَّهُ فِي عَوْنِ الْعَبْدِ مَا كَانَ الْعَبْدُ فِي عَوْنِ أَخِيهِ، وَمَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ، وَمَا اجْتَمَعَ قَوْمٌ فِي بَيْتٍ مِنْ بُيُوتِ اللَّهِ يَتْلُونَ كِتَابَ اللَّهِ وَيَتَدَارَسُونَهُ بَيْنَهُمْ إِلَّا نَزَلَتْ عَلَيْهِمُ السَّكِينَةُ وَغَشِيَتْهُمُ الرَّحْمَةُ وَحَفَّتْهُمُ الْمَلَائِكَةُ وَذَكَرَهُمُ اللَّهُ فِيمَنْ عِنْدَهُ، وَمَنْ بَطَّأَ بِهِ عَمَلُهُ لَمْ يُسْرِعْ بِهِ نَسَبُهُ.',fullTrans:'Whoever relieves a believer of a hardship from the hardships of this world, Allah will relieve him of a hardship from the hardships of the Day of Resurrection. Whoever makes things easy for one in difficulty, Allah will make things easy for him in this world and the Hereafter. Whoever conceals the faults of a Muslim, Allah will conceal his faults in this world and the Hereafter. Allah helps the servant as long as the servant helps his brother. Whoever follows a path seeking knowledge, Allah will make easy for him a path to Paradise. No people gather in one of the houses of Allah to recite and study the Book of Allah together except that tranquility descends upon them, mercy covers them, the angels surround them, and Allah mentions them among those with Him. Whoever is slowed by his deeds will not be hastened forward by his lineage.',ref:'Sahih Muslim 2699'},
+  {arabic:'الْكَلِمَةُ الطَّيِّبَةُ صَدَقَةٌ',trans:'A good word is charity.',fullArabic:'كُلُّ سُلَامَى مِنَ النَّاسِ عَلَيْهِ صَدَقَةٌ كُلَّ يَوْمٍ تَطْلُعُ فِيهِ الشَّمْسُ، تَعْدِلُ بَيْنَ اثْنَيْنِ صَدَقَةٌ، وَتُعِينُ الرَّجُلَ فِي دَابَّتِهِ فَتَحْمِلُهُ عَلَيْهَا أَوْ تَرْفَعُ لَهُ عَلَيْهَا مَتَاعَهُ صَدَقَةٌ، وَالْكَلِمَةُ الطَّيِّبَةُ صَدَقَةٌ، وَبِكُلِّ خُطْوَةٍ تَمْشِيهَا إِلَى الصَّلَاةِ صَدَقَةٌ، وَتُمِيطُ الْأَذَى عَنِ الطَّرِيقِ صَدَقَةٌ.',fullTrans:'Every joint of a person must give charity each day the sun rises. To reconcile between two people is charity; to help a man with his riding animal, lifting him onto it or lifting his belongings onto it, is charity; a good word is charity; every step you take toward prayer is charity; and removing something harmful from the road is charity.',ref:'Sahih al-Bukhari 2989; Sahih Muslim 1009'}
+];
+let _dailyGuidanceOffset=0;
+function renderDailyGuidance(){
+  const ai=(Number(activeDateKey.replace(/-/g,''))+_dailyGuidanceOffset)%DAILY_AYAHS.length;
+  const hi=(Number(activeDateKey.replace(/-/g,''))+_dailyGuidanceOffset)%DAILY_GUIDANCE_HADITHS.length;
+  const a=DAILY_AYAHS[ai],h=DAILY_GUIDANCE_HADITHS[hi];
+  const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+  set('daily-guidance-ayah-arabic',a.arabic);
+  set('daily-guidance-ayah-trans',a.trans);
+  set('daily-guidance-ayah-ref',a.ref);
+  set('daily-guidance-hadith-arabic',h.arabic);
+  set('daily-guidance-hadith-trans',h.trans);
+  set('daily-guidance-hadith-ref',h.ref);
+}
+function loadNewDailyGuidance(){
+  _dailyGuidanceOffset=(_dailyGuidanceOffset+1)%Math.max(DAILY_AYAHS.length,DAILY_GUIDANCE_HADITHS.length);
+  renderDailyGuidance();
+}
+
 // ═══════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════
 const D_=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const M_=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-document.getElementById('date-display').textContent=D_[NOW.getDay()]+', '+M_[NOW.getMonth()]+' '+NOW.getDate()+' '+NOW.getFullYear();
+_refreshActiveDateFlags();
+updateActiveDateDisplay();
 
 // Surah Kahf: one weekly bonus. If completed Thursday, Friday does not ask again.
-function wasKahfCompletedThursday(){if(!IS_FRIDAY)return false;const d=new Date(NOW);d.setDate(d.getDate()-1);return !!getStorage()[getDateKey(d)]?.quran?.kahf;}
+function wasKahfCompletedThursday(){
+  if(!IS_FRIDAY)return false;
+  const d=_dateFromKey(activeDateKey);
+  d.setDate(d.getDate()-1);
+  return !!getStorage()[getDateKey(d)]?.quran?.kahf;
+}
 function updateKahfUI(){const row=document.getElementById('kahf-row'),desc=document.getElementById('kahf-desc'),badge=document.getElementById('kahf-bonus-badge');if(!row)return;const doneThu=wasKahfCompletedThursday();row.style.display=(IS_KAHF_DAY&&!doneThu)?'flex':'none';if(doneThu&&desc)desc.textContent='✓ Already completed Thursday — weekly bonus earned';if(badge)badge.style.display='inline-flex';}
 updateKahfUI();
 
@@ -3729,8 +4172,10 @@ if(IS_THURSDAY_EVE){
 }
 
 buildSalahRows();
-renderDhikrItems(); // initialise empty dhikr list
+_restoreDhikrPreferences();
+renderDhikrItems(); // initialise saved Dhikr/Azkar/Istighfar preferences
 _renderAyah();
+renderDailyGuidance();
 // Pick a random starting ayah
 _ayahIdx = Math.floor(Math.random()*DAILY_AYAHS.length);
 _renderAyah();
@@ -3740,11 +4185,12 @@ initBellDot();
 
 // Build configurable sections, then restore today's draft.
 applySectionConfig();
-// Restore draft, then score & streaks
+// Restore the selected-date draft, then score & streaks.
 const _drafted = restoreDraft();
 updateScore();
 updateStreakUI();
 initSwipeNavigation();
+initSectionHeightObserver();
 initStickyScoreVisibility();
 refreshSwipeForModes();
 maybeShowIslamicReminder();
@@ -3752,7 +4198,7 @@ const _resumeHint=document.getElementById('swipe-hint');
 if(_resumeHint&&_swipeIndex>0){_resumeHint.textContent='↔ Continuing from your last section — swipe to navigate';}
 
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeIslamicReminder();closeRecommendations();closeWhatsNew();return;}if(document.getElementById('tab-daily')?.style.display==='none')return;if(e.target.closest('input,select,textarea,button,[contenteditable="true"]'))return;if(e.key==='ArrowLeft')moveSwipeSection(-1);if(e.key==='ArrowRight')moveSwipeSection(1);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeIslamicReminder();closeDailyGuidanceReader();closeRecommendations();closeWhatsNew();return;}if(document.getElementById('tab-daily')?.style.display==='none')return;if(e.target.closest('input,select,textarea,button,[contenteditable="true"]'))return;if(e.key==='ArrowLeft')moveSwipeSection(-1);if(e.key==='ArrowRight')moveSwipeSection(1);});
 
 // Hook autosave on free-text inputs (old ids removed since dhikr is now dynamic)
 ['reflection-win','reflection-improve','trigger-text','quran-mins','quran-pages'].forEach(id=>{
