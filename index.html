@@ -3136,7 +3136,7 @@ function restoreDraft(){
   try{draft=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){}
   if(!draft||draft.date!==activeDateKey){draft=_getDateDraft(activeDateKey);}
   if(!draft||draft.date!==activeDateKey)return false;
-  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
+  _lsWrite(DRAFT_KEY,JSON.stringify(draft));
 
   // Restore modes
   if(draft.isSistersMode !== undefined){
