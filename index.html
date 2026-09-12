@@ -594,9 +594,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .autosave-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .4s;flex-shrink:0;}
 .autosave-dot.saved{background:var(--green);box-shadow:0 0 6px rgba(61,220,132,.6);}
 .autosave-dot.saving{background:var(--gold);animation:as-pulse .7s ease infinite;}
+.autosave-dot.failed{background:#ff6b6b;box-shadow:0 0 6px rgba(255,107,107,.6);}
 .autosave-text{font-size:11px;color:var(--muted);transition:color .3s;font-weight:500;}
 .autosave-text.saved{color:var(--green);}
 .autosave-text.saving{color:var(--gold);}
+.autosave-text.failed{color:#ff6b6b;font-weight:600;}
 @keyframes as-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* STREAK COUNTER */
@@ -1800,7 +1802,7 @@ let dhikrItems = []; // [{id, name, count}]
 let dhikrIdCounter = 0;
 const DHIKR_PREFS_KEY='spt_dhikr_preferences_v1';
 function _getDhikrPreferences(){try{const a=JSON.parse(localStorage.getItem(DHIKR_PREFS_KEY)||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string'&&x.trim()):[];}catch(e){return[];}}
-function _saveDhikrPreferences(){try{localStorage.setItem(DHIKR_PREFS_KEY,JSON.stringify([...new Set(dhikrItems.map(x=>x.name.trim()).filter(Boolean))]));}catch(e){}}
+function _saveDhikrPreferences(){return _lsWrite(DHIKR_PREFS_KEY,JSON.stringify([...new Set(dhikrItems.map(x=>x.name.trim()).filter(Boolean))]));}
 function _restoreDhikrPreferences(){const names=_getDhikrPreferences();if(!names.length)return false;dhikrItems=names.map((name,i)=>({id:i+1,name,count:0}));dhikrIdCounter=dhikrItems.length;return true;}
 
 // ── Extra nafl rows state ──
@@ -1857,7 +1859,7 @@ function loadSectionConfig(){
   sectionConfig.order=[...sectionConfig.order.filter(k=>all.includes(k)),...all.filter(k=>!sectionConfig.order.includes(k))];
   all.forEach(k=>{if(sectionConfig.enabled[k]===undefined)sectionConfig.enabled[k]=true;});
 }
-function saveSectionConfig(){try{localStorage.setItem(SECTION_CONFIG_KEY,JSON.stringify(sectionConfig));}catch(e){} if(currentSupabaseUser&&cloudSyncEnabled){clearTimeout(window._sectionCloudTimer);window._sectionCloudTimer=setTimeout(()=>_savePreferencesToCloud().catch(console.error),600);}}
+function saveSectionConfig(){const ok=_lsWrite(SECTION_CONFIG_KEY,JSON.stringify(sectionConfig)); if(currentSupabaseUser&&cloudSyncEnabled){clearTimeout(window._sectionCloudTimer);window._sectionCloudTimer=setTimeout(()=>_savePreferencesToCloud().catch(console.error),600);} return ok;}
 function getSectionMeta(key){return BUILTIN_SECTION_META[key]||sectionConfig.custom.find(s=>s.id===key)||{icon:'📝',name:'Custom Section',subtitle:'Personal tracker'};}
 function isSectionEnabled(key){return sectionConfig.enabled[key]!==false;}
 function getCustomSection(key){return sectionConfig.custom.find(s=>s.id===key)||null;}
@@ -2186,9 +2188,52 @@ if(supabaseClient){
 
 // ═══════════════════════════════════════════════════
 //  STORAGE
+//  Every write reports whether it actually landed. A full
+//  quota, blocked site data, or unreadable history must never
+//  be presented to the user as a successful save.
 // ═══════════════════════════════════════════════════
-function getStorage(){try{return JSON.parse(localStorage.getItem('spt_v2')||'{}')}catch{return{}}}
-function setStorage(d){try{localStorage.setItem('spt_v2',JSON.stringify(d))}catch{}}
+// `var`, not `let`: _lsWrite() is reached from functions declared earlier in
+// this script, so these bindings must hoist rather than sit in a TDZ.
+var _lastStorageError = null;
+var _historyReadFailed = false;
+
+function storageErrorText(){
+  if(!_lastStorageError) return 'Local storage is unavailable in this browser.';
+  const sig = ((_lastStorageError.name||'')+' '+(_lastStorageError.message||'')).toLowerCase();
+  if(sig.includes('quota') || sig.includes('exceeded'))
+    return 'Your device storage is full. Export a backup, then remove older days to free space.';
+  return 'This browser is blocking local storage (private browsing, or site data turned off).';
+}
+
+// Returns true only if the value is actually persisted.
+function _lsWrite(key,value){
+  try{ localStorage.setItem(key,value); _lastStorageError=null; return true; }
+  catch(e){ _lastStorageError=e; console.error('[Spiritual Tracker] localStorage write failed:',key,e); return false; }
+}
+function _lsRead(key){
+  try{ return localStorage.getItem(key); }
+  catch(e){ _lastStorageError=e; return null; }
+}
+
+// Unreadable history is quarantined under a timestamped key rather than
+// silently replaced with {} — otherwise the next save would overwrite
+// recoverable data with an empty object.
+function getStorage(){
+  const raw=_lsRead('spt_v2');
+  if(raw===null||raw==='') { _historyReadFailed=false; return {}; }
+  try{
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)) throw new Error('spt_v2 is not an object');
+    _historyReadFailed=false;
+    return parsed;
+  }catch(e){
+    _historyReadFailed=true;
+    console.error('[Spiritual Tracker] Saved history is unreadable; quarantining the raw value.',e);
+    _lsWrite('spt_v2_corrupt_'+Date.now(),raw);
+    return {};
+  }
+}
+function setStorage(d){ return _lsWrite('spt_v2',JSON.stringify(d)); }
 function todayKey(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`}
 function getDateKey(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 
@@ -2626,14 +2671,26 @@ function _origSaveDay(){
   };
 
   history[key] = dayPayload;
-  setStorage(history);
+
+  const btn=document.querySelector('.save-day-btn');
+  const restoreLabel=()=>{ if(btn){ btn.textContent=activeDateKey===todayKey()?"💾 Save Today’s Spiritual Progress":"💾 Save Retrospective Entry"; btn.style.background=''; } };
+
+  // The write is the save. If it did not land, say so — never show a success message.
+  if(!setStorage(history)){
+    if(btn){ btn.textContent="⚠️ Not saved — storage blocked"; btn.style.background='linear-gradient(135deg,#c0392b,#e74c3c)'; setTimeout(restoreLabel,6000); }
+    showBackupStatus('⚠️ This day was NOT saved. '+storageErrorText(),'error');
+    alert('This day could not be saved.\n\n'+storageErrorText()+'\n\nYour entry is still on screen. Export a backup or free some space, then save again.');
+    return false;
+  }
 
   // Feature 7 — ready for cloud sync injection
   _onDaySaved(key, dayPayload);
 
-  const btn=document.querySelector('.save-day-btn');
-  btn.textContent="✅ Saved! Barak Allahu Feek 🌟"; btn.style.background='linear-gradient(135deg,#3ddc84,#2bc470)';
-  setTimeout(()=>{btn.textContent=activeDateKey===todayKey()?"💾 Save Today’s Spiritual Progress":"💾 Save Retrospective Entry"; btn.style.background='';},2500);
+  if(btn){ btn.textContent="✅ Saved! Barak Allahu Feek 🌟"; btn.style.background='linear-gradient(135deg,#3ddc84,#2bc470)'; setTimeout(restoreLabel,2500); }
+  if(_historyReadFailed){
+    showBackupStatus('⚠️ Your earlier history could not be read and has been set aside under a recovery key. Today is saved. Please export a backup.','error');
+  }
+  return true;
 }
 
 // Cloud sync hook — local save always succeeds first; cloud is opt-in.
@@ -3002,7 +3059,7 @@ let _asTimer = null;
 
 function _getDraftMap(){try{const m=JSON.parse(localStorage.getItem(DRAFTS_KEY)||'{}');return m&&typeof m==='object'?m:{}}catch(e){return{}}}
 function _getDateDraft(dateKey){const m=_getDraftMap();return m[dateKey]||null}
-function _setDateDraft(dateKey,draft){try{const m=_getDraftMap();m[dateKey]=draft;localStorage.setItem(DRAFTS_KEY,JSON.stringify(m));}catch(e){}}
+function _setDateDraft(dateKey,draft){const m=_getDraftMap();m[dateKey]=draft;return _lsWrite(DRAFTS_KEY,JSON.stringify(m));}
 
 
 function _asShowSaving(){
@@ -3010,8 +3067,13 @@ function _asShowSaving(){
   if(dot)dot.className='autosave-dot saving';
   if(txt){txt.className='autosave-text saving';txt.textContent='Saving...';}
 }
-function _asShowSaved(){
+function _asShowSaved(ok=true){
   const dot=document.getElementById('as-dot'),txt=document.getElementById('as-text');
+  if(!ok){
+    if(dot)dot.className='autosave-dot failed';
+    if(txt){txt.className='autosave-text failed';txt.textContent='⚠️ Not autosaved — storage blocked';}
+    return;
+  }
   if(dot)dot.className='autosave-dot saved';
   if(txt){
     txt.className='autosave-text saved';
@@ -3056,9 +3118,11 @@ function saveDraft(){
     isHaydMode,
     savedAt:new Date().toISOString(),
   };
-  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
-  _setDateDraft(activeDateKey,draft);
-  setTimeout(_asShowSaved,350);
+  const okActive=_lsWrite(DRAFT_KEY,JSON.stringify(draft));
+  const okDated=_setDateDraft(activeDateKey,draft);
+  const ok=okActive&&okDated;
+  setTimeout(()=>_asShowSaved(ok),350);
+  return ok;
 }
 
 function triggerAutosave(){
@@ -3185,7 +3249,7 @@ function updateStreakUI(){
 }
 
 const _origSaveDay2 = _origSaveDay;
-function saveDay(){ _origSaveDay2(); updateStreakUI(); }
+function saveDay(){ const ok=_origSaveDay2(); updateStreakUI(); return ok; }
 
 // ═══════════════════════════════════════════════════
 //  MILESTONE BADGES
@@ -4114,7 +4178,9 @@ function _historyEntryToDraft(entry){
 
 function _applyDraftForActiveDate(draft){
   if(!draft)return false;
-  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
+  // If this staging write fails, restoreDraft() sees a date mismatch and falls
+  // back to the per-date draft map, so the correct day is still loaded.
+  _lsWrite(DRAFT_KEY,JSON.stringify(draft));
   return restoreDraft();
 }
 
