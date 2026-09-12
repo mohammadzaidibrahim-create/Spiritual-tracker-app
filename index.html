@@ -2560,7 +2560,7 @@ function renderHabits(){
   c.innerHTML=habits.map(h=>`<div class="habit-card">
     <div class="habit-top">
       <div class="habit-check ${h.done?'done':''}" onclick="toggleHabit(${h.id})">${h.done?'✓':'+'}</div>
-      <input class="habit-name-input" placeholder="Habit name…" value="${h.name.replace(/"/g,'&quot;')}" oninput="updateHabitName(${h.id},this.value)">
+      <input class="habit-name-input" placeholder="Habit name…" value="${escapeHTML(h.name)}" oninput="updateHabitName(${h.id},this.value)">
       <button class="habit-remove" onclick="removeHabit(${h.id})">×</button>
     </div>
     <div class="habit-meta">
@@ -3452,7 +3452,7 @@ function renderNaflRows(){
           <input class="cb-input" type="checkbox" ${r.checked?'checked':''} onchange="toggleNafl(${r.id})">
           <div class="cb-box"></div>
         </label>
-        <input class="vol-other-input" type="text" value="${r.name.replace(/"/g,'&quot;')}" placeholder="Nafl prayer name…" oninput="updateNaflName(${r.id},this.value)" style="max-width:none;flex:1;">
+        <input class="vol-other-input" type="text" value="${escapeHTML(r.name)}" placeholder="Nafl prayer name…" oninput="updateNaflName(${r.id},this.value)" style="max-width:none;flex:1;">
       </div>
       <div class="vol-pts" style="margin:0 6px;">+1 pt</div>
       <button class="nafl-remove-btn" onclick="removeNaflRow(${r.id})">×</button>
@@ -3520,7 +3520,7 @@ function renderDhikrItems(){
     const ptsDisplay = pts % 1 === 0 ? pts : pts.toFixed(1);
     return `<div class="dhikr-item-row">
       <div class="dhikr-item-top">
-        <div class="dhikr-item-name" title="${item.name.replace(/"/g,'&quot;')}">${item.name}</div>
+        <div class="dhikr-item-name" title="${escapeHTML(item.name)}">${escapeHTML(item.name)}</div>
         <span style="font-size:10px;color:var(--muted);flex-shrink:0;">Count:</span>
         <input class="count-input" type="number" min="0" value="${item.count||''}" placeholder="0"
           oninput="updateDhikrCount(${item.id},this.value)" style="width:62px;flex-shrink:0;">
