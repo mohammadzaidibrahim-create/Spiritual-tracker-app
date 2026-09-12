@@ -3265,34 +3265,127 @@ function updateMilestoneBadges(bestStreak){
 // ═══════════════════════════════════════════════════
 //  BACKUP & RESTORE
 // ═══════════════════════════════════════════════════
+// Stores that hold real user data and must survive a device change.
+// Deliberately excluded: spt_swipe_position_v1, spt_bell_seen_v27 and the
+// reminder flags — per-device UI state that should not follow a restore.
+const BACKUP_STORES=[
+  {key:'spt_v2',                   label:'saved days'},
+  {key:'spt_draft_v2',             label:'active draft'},
+  {key:'spt_drafts_v1',            label:'unsaved drafts'},
+  {key:'spt_section_config_v1',    label:'custom sections'},
+  {key:'spt_dhikr_preferences_v1', label:'dhikr list'},
+];
+
+// schema 2 keeps every schema-1 key at the same top level, so a file written
+// here still opens in an older build and an older file still restores here.
+function buildBackupPayload(){
+  const payload={_meta:{app:'Spiritual Tracker',version:'3.1.0-clean-integrated',schema:2,exported:new Date().toISOString()},_unreadable:[]};
+  BACKUP_STORES.forEach(({key})=>{
+    const raw=_lsRead(key);
+    if(raw===null||raw===''){payload[key]=null;return;}
+    try{ payload[key]=JSON.parse(raw); }
+    catch(e){ payload[key]=null; payload._unreadable.push(key); }
+  });
+  return payload;
+}
+
 function exportBackup(){
   try{
-    const history=getStorage();
-    const draft=localStorage.getItem('spt_draft_v2')||null;
-    const payload={_meta:{app:'Spiritual Tracker',version:'3.1.0-clean-integrated',exported:new Date().toISOString()},spt_v2:history,spt_draft_v2:draft?JSON.parse(draft):null};
+    const payload=buildBackupPayload();
+    const dayCount=payload.spt_v2?Object.keys(payload.spt_v2).length:0;
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;a.download=`spiritual-tracker-backup-${new Date().toISOString().slice(0,10)}.json`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-    showBackupStatus('✅ Backup downloaded successfully!','success');
-  }catch(e){showBackupStatus('❌ Export failed — please try again.','error');}
+    if(payload._unreadable.length){
+      showBackupStatus('⚠️ Backup downloaded, but '+payload._unreadable.length+' store(s) could not be read and are not in the file.','error');
+    }else{
+      showBackupStatus('✅ Backup downloaded — '+dayCount+' day'+(dayCount===1?'':'s')+', plus your sections, drafts and dhikr list.','success');
+    }
+    return payload;
+  }catch(e){showBackupStatus('❌ Export failed — please try again.','error');return null;}
+}
+
+// A backup file is untrusted input. Keep only well-formed day entries so a
+// corrupt or hand-edited file cannot inject junk keys into saved history.
+function sanitiseBackupHistory(raw){
+  const days={};let skipped=0;
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
+    Object.keys(raw).forEach(k=>{
+      const v=raw[k];
+      if(_validRecordDateKey(k)&&v&&typeof v==='object'&&!Array.isArray(v)) days[k]=v;
+      else skipped++;
+    });
+  }
+  return {days,skipped};
+}
+
+// Applies a parsed backup. Returns a result object so this is testable without
+// a FileReader. Stores absent from the file are left untouched, which is what
+// makes older schema-1 files safe to restore.
+function applyBackupPayload(payload,{confirmFn=confirm}={}){
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)||!payload.spt_v2)
+    return {ok:false,reason:'not-a-backup'};
+
+  const {days,skipped}=sanitiseBackupHistory(payload.spt_v2);
+  const dayCount=Object.keys(days).length;
+  if(!dayCount) return {ok:false,reason:'no-valid-days',skipped};
+
+  const willReplace=BACKUP_STORES.filter(s=>s.key!=='spt_v2'&&payload[s.key]).map(s=>s.label);
+  const prompt='⚠️ Restore this backup?\n\n'
+    +'• '+dayCount+' saved day'+(dayCount===1?'':'s')+' will be merged in\n'
+    +(skipped?'• '+skipped+' unreadable entr'+(skipped===1?'y':'ies')+' will be skipped\n':'')
+    +(willReplace.length?'• '+willReplace.join(', ')+' will be replaced\n':'')
+    +'\nA day with the same date is overwritten by the backup, and unsaved work on the day you are viewing is replaced.\n\nContinue?';
+  if(!confirmFn(prompt)) return {ok:false,reason:'cancelled'};
+
+  if(!setStorage(Object.assign({},getStorage(),days)))
+    return {ok:false,reason:'write-failed',detail:storageErrorText()};
+
+  const restored=['saved days'];
+  const put=(key,label,valid)=>{
+    const v=payload[key];
+    if(v===undefined||v===null||!valid(v))return;
+    if(_lsWrite(key,JSON.stringify(v))&&label)restored.push(label);
+  };
+  const isObj=v=>typeof v==='object'&&!Array.isArray(v);
+  put('spt_draft_v2',null,isObj);
+  put('spt_drafts_v1','unsaved drafts',isObj);
+  put('spt_section_config_v1','custom sections',isObj);
+  put('spt_dhikr_preferences_v1','dhikr list',Array.isArray);
+
+  return {ok:true,dayCount,skipped,restored};
 }
 
 function importBackup(event){
   const file=event.target.files[0];if(!file)return;
+  const clear=()=>{event.target.value='';};
   const reader=new FileReader();
+  reader.onerror=function(){showBackupStatus('❌ Could not read that file.','error');clear();};
   reader.onload=function(e){
-    try{
-      const payload=JSON.parse(e.target.result);
-      if(!payload||!payload.spt_v2){showBackupStatus('❌ Invalid backup file.','error');return;}
-      if(!confirm('⚠️ Merge backup into current data? Same-day entries will be overwritten. Continue?')){event.target.value='';return;}
-      const merged=Object.assign({},getStorage(),payload.spt_v2);
-      setStorage(merged);
-      if(payload.spt_draft_v2)localStorage.setItem('spt_draft_v2',JSON.stringify(payload.spt_draft_v2));
-      showBackupStatus('✅ Backup restored! '+Object.keys(payload.spt_v2).length+' days imported.','success');
-      updateStreakUI();event.target.value='';
-    }catch(err){showBackupStatus('❌ Could not read file.','error');event.target.value='';}
+    let payload;
+    try{ payload=JSON.parse(e.target.result); }
+    catch(err){ showBackupStatus('❌ That file is not valid JSON.','error');clear();return; }
+
+    const r=applyBackupPayload(payload);
+    if(!r.ok){
+      if(r.reason==='cancelled'){clear();return;}
+      const msg=r.reason==='not-a-backup' ? '❌ That is not a Spiritual Tracker backup file.'
+        : r.reason==='no-valid-days'      ? '❌ This backup contains no readable days.'
+        : '❌ Restore failed — '+(r.detail||'please try again.');
+      showBackupStatus(msg,'error');clear();return;
+    }
+
+    // Rebuild from what was just restored: config first, then the visible day.
+    loadSectionConfig();
+    applySectionConfig();
+    loadActiveDate();
+    updateStreakUI();
+    buildDiaryFeed();
+    showBackupStatus('✅ Restored '+r.dayCount+' day'+(r.dayCount===1?'':'s')+' — '+r.restored.join(', ')+'.'
+      +(r.skipped?' '+r.skipped+' invalid entr'+(r.skipped===1?'y':'ies')+' skipped.':''),'success');
+    clear();
   };
   reader.readAsText(file);
 }
