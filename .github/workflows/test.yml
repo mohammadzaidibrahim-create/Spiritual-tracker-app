@@ -1,0 +1,21 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # No dependencies: the suite uses only node:test, node:assert and node:vm.
+      - name: Run tests
+        run: node --test 'tests/*.test.js'

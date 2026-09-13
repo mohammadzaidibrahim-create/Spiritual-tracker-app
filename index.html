@@ -594,9 +594,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .autosave-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .4s;flex-shrink:0;}
 .autosave-dot.saved{background:var(--green);box-shadow:0 0 6px rgba(61,220,132,.6);}
 .autosave-dot.saving{background:var(--gold);animation:as-pulse .7s ease infinite;}
+.autosave-dot.failed{background:#ff6b6b;box-shadow:0 0 6px rgba(255,107,107,.6);}
 .autosave-text{font-size:11px;color:var(--muted);transition:color .3s;font-weight:500;}
 .autosave-text.saved{color:var(--green);}
 .autosave-text.saving{color:var(--gold);}
+.autosave-text.failed{color:#ff6b6b;font-weight:600;}
 @keyframes as-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* STREAK COUNTER */
@@ -1800,7 +1802,7 @@ let dhikrItems = []; // [{id, name, count}]
 let dhikrIdCounter = 0;
 const DHIKR_PREFS_KEY='spt_dhikr_preferences_v1';
 function _getDhikrPreferences(){try{const a=JSON.parse(localStorage.getItem(DHIKR_PREFS_KEY)||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string'&&x.trim()):[];}catch(e){return[];}}
-function _saveDhikrPreferences(){try{localStorage.setItem(DHIKR_PREFS_KEY,JSON.stringify([...new Set(dhikrItems.map(x=>x.name.trim()).filter(Boolean))]));}catch(e){}}
+function _saveDhikrPreferences(){return _lsWrite(DHIKR_PREFS_KEY,JSON.stringify([...new Set(dhikrItems.map(x=>x.name.trim()).filter(Boolean))]));}
 function _restoreDhikrPreferences(){const names=_getDhikrPreferences();if(!names.length)return false;dhikrItems=names.map((name,i)=>({id:i+1,name,count:0}));dhikrIdCounter=dhikrItems.length;return true;}
 
 // ── Extra nafl rows state ──
@@ -1857,7 +1859,7 @@ function loadSectionConfig(){
   sectionConfig.order=[...sectionConfig.order.filter(k=>all.includes(k)),...all.filter(k=>!sectionConfig.order.includes(k))];
   all.forEach(k=>{if(sectionConfig.enabled[k]===undefined)sectionConfig.enabled[k]=true;});
 }
-function saveSectionConfig(){try{localStorage.setItem(SECTION_CONFIG_KEY,JSON.stringify(sectionConfig));}catch(e){} if(currentSupabaseUser&&cloudSyncEnabled){clearTimeout(window._sectionCloudTimer);window._sectionCloudTimer=setTimeout(()=>_savePreferencesToCloud().catch(console.error),600);}}
+function saveSectionConfig(){const ok=_lsWrite(SECTION_CONFIG_KEY,JSON.stringify(sectionConfig)); if(currentSupabaseUser&&cloudSyncEnabled){clearTimeout(window._sectionCloudTimer);window._sectionCloudTimer=setTimeout(()=>_savePreferencesToCloud().catch(console.error),600);} return ok;}
 function getSectionMeta(key){return BUILTIN_SECTION_META[key]||sectionConfig.custom.find(s=>s.id===key)||{icon:'📝',name:'Custom Section',subtitle:'Personal tracker'};}
 function isSectionEnabled(key){return sectionConfig.enabled[key]!==false;}
 function getCustomSection(key){return sectionConfig.custom.find(s=>s.id===key)||null;}
@@ -2186,9 +2188,52 @@ if(supabaseClient){
 
 // ═══════════════════════════════════════════════════
 //  STORAGE
+//  Every write reports whether it actually landed. A full
+//  quota, blocked site data, or unreadable history must never
+//  be presented to the user as a successful save.
 // ═══════════════════════════════════════════════════
-function getStorage(){try{return JSON.parse(localStorage.getItem('spt_v2')||'{}')}catch{return{}}}
-function setStorage(d){try{localStorage.setItem('spt_v2',JSON.stringify(d))}catch{}}
+// `var`, not `let`: _lsWrite() is reached from functions declared earlier in
+// this script, so these bindings must hoist rather than sit in a TDZ.
+var _lastStorageError = null;
+var _historyReadFailed = false;
+
+function storageErrorText(){
+  if(!_lastStorageError) return 'Local storage is unavailable in this browser.';
+  const sig = ((_lastStorageError.name||'')+' '+(_lastStorageError.message||'')).toLowerCase();
+  if(sig.includes('quota') || sig.includes('exceeded'))
+    return 'Your device storage is full. Export a backup, then remove older days to free space.';
+  return 'This browser is blocking local storage (private browsing, or site data turned off).';
+}
+
+// Returns true only if the value is actually persisted.
+function _lsWrite(key,value){
+  try{ localStorage.setItem(key,value); _lastStorageError=null; return true; }
+  catch(e){ _lastStorageError=e; console.error('[Spiritual Tracker] localStorage write failed:',key,e); return false; }
+}
+function _lsRead(key){
+  try{ return localStorage.getItem(key); }
+  catch(e){ _lastStorageError=e; return null; }
+}
+
+// Unreadable history is quarantined under a timestamped key rather than
+// silently replaced with {} — otherwise the next save would overwrite
+// recoverable data with an empty object.
+function getStorage(){
+  const raw=_lsRead('spt_v2');
+  if(raw===null||raw==='') { _historyReadFailed=false; return {}; }
+  try{
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)) throw new Error('spt_v2 is not an object');
+    _historyReadFailed=false;
+    return parsed;
+  }catch(e){
+    _historyReadFailed=true;
+    console.error('[Spiritual Tracker] Saved history is unreadable; quarantining the raw value.',e);
+    _lsWrite('spt_v2_corrupt_'+Date.now(),raw);
+    return {};
+  }
+}
+function setStorage(d){ return _lsWrite('spt_v2',JSON.stringify(d)); }
 function todayKey(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`}
 function getDateKey(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 
@@ -2515,7 +2560,7 @@ function renderHabits(){
   c.innerHTML=habits.map(h=>`<div class="habit-card">
     <div class="habit-top">
       <div class="habit-check ${h.done?'done':''}" onclick="toggleHabit(${h.id})">${h.done?'✓':'+'}</div>
-      <input class="habit-name-input" placeholder="Habit name…" value="${h.name.replace(/"/g,'&quot;')}" oninput="updateHabitName(${h.id},this.value)">
+      <input class="habit-name-input" placeholder="Habit name…" value="${escapeHTML(h.name)}" oninput="updateHabitName(${h.id},this.value)">
       <button class="habit-remove" onclick="removeHabit(${h.id})">×</button>
     </div>
     <div class="habit-meta">
@@ -2626,14 +2671,26 @@ function _origSaveDay(){
   };
 
   history[key] = dayPayload;
-  setStorage(history);
+
+  const btn=document.querySelector('.save-day-btn');
+  const restoreLabel=()=>{ if(btn){ btn.textContent=activeDateKey===todayKey()?"💾 Save Today’s Spiritual Progress":"💾 Save Retrospective Entry"; btn.style.background=''; } };
+
+  // The write is the save. If it did not land, say so — never show a success message.
+  if(!setStorage(history)){
+    if(btn){ btn.textContent="⚠️ Not saved — storage blocked"; btn.style.background='linear-gradient(135deg,#c0392b,#e74c3c)'; setTimeout(restoreLabel,6000); }
+    showBackupStatus('⚠️ This day was NOT saved. '+storageErrorText(),'error');
+    alert('This day could not be saved.\n\n'+storageErrorText()+'\n\nYour entry is still on screen. Export a backup or free some space, then save again.');
+    return false;
+  }
 
   // Feature 7 — ready for cloud sync injection
   _onDaySaved(key, dayPayload);
 
-  const btn=document.querySelector('.save-day-btn');
-  btn.textContent="✅ Saved! Barak Allahu Feek 🌟"; btn.style.background='linear-gradient(135deg,#3ddc84,#2bc470)';
-  setTimeout(()=>{btn.textContent=activeDateKey===todayKey()?"💾 Save Today’s Spiritual Progress":"💾 Save Retrospective Entry"; btn.style.background='';},2500);
+  if(btn){ btn.textContent="✅ Saved! Barak Allahu Feek 🌟"; btn.style.background='linear-gradient(135deg,#3ddc84,#2bc470)'; setTimeout(restoreLabel,2500); }
+  if(_historyReadFailed){
+    showBackupStatus('⚠️ Your earlier history could not be read and has been set aside under a recovery key. Today is saved. Please export a backup.','error');
+  }
+  return true;
 }
 
 // Cloud sync hook — local save always succeeds first; cloud is opt-in.
@@ -3002,7 +3059,7 @@ let _asTimer = null;
 
 function _getDraftMap(){try{const m=JSON.parse(localStorage.getItem(DRAFTS_KEY)||'{}');return m&&typeof m==='object'?m:{}}catch(e){return{}}}
 function _getDateDraft(dateKey){const m=_getDraftMap();return m[dateKey]||null}
-function _setDateDraft(dateKey,draft){try{const m=_getDraftMap();m[dateKey]=draft;localStorage.setItem(DRAFTS_KEY,JSON.stringify(m));}catch(e){}}
+function _setDateDraft(dateKey,draft){const m=_getDraftMap();m[dateKey]=draft;return _lsWrite(DRAFTS_KEY,JSON.stringify(m));}
 
 
 function _asShowSaving(){
@@ -3010,8 +3067,13 @@ function _asShowSaving(){
   if(dot)dot.className='autosave-dot saving';
   if(txt){txt.className='autosave-text saving';txt.textContent='Saving...';}
 }
-function _asShowSaved(){
+function _asShowSaved(ok=true){
   const dot=document.getElementById('as-dot'),txt=document.getElementById('as-text');
+  if(!ok){
+    if(dot)dot.className='autosave-dot failed';
+    if(txt){txt.className='autosave-text failed';txt.textContent='⚠️ Not autosaved — storage blocked';}
+    return;
+  }
   if(dot)dot.className='autosave-dot saved';
   if(txt){
     txt.className='autosave-text saved';
@@ -3056,9 +3118,11 @@ function saveDraft(){
     isHaydMode,
     savedAt:new Date().toISOString(),
   };
-  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
-  _setDateDraft(activeDateKey,draft);
-  setTimeout(_asShowSaved,350);
+  const okActive=_lsWrite(DRAFT_KEY,JSON.stringify(draft));
+  const okDated=_setDateDraft(activeDateKey,draft);
+  const ok=okActive&&okDated;
+  setTimeout(()=>_asShowSaved(ok),350);
+  return ok;
 }
 
 function triggerAutosave(){
@@ -3072,7 +3136,7 @@ function restoreDraft(){
   try{draft=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){}
   if(!draft||draft.date!==activeDateKey){draft=_getDateDraft(activeDateKey);}
   if(!draft||draft.date!==activeDateKey)return false;
-  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
+  _lsWrite(DRAFT_KEY,JSON.stringify(draft));
 
   // Restore modes
   if(draft.isSistersMode !== undefined){
@@ -3185,7 +3249,7 @@ function updateStreakUI(){
 }
 
 const _origSaveDay2 = _origSaveDay;
-function saveDay(){ _origSaveDay2(); updateStreakUI(); }
+function saveDay(){ const ok=_origSaveDay2(); updateStreakUI(); return ok; }
 
 // ═══════════════════════════════════════════════════
 //  MILESTONE BADGES
@@ -3201,34 +3265,127 @@ function updateMilestoneBadges(bestStreak){
 // ═══════════════════════════════════════════════════
 //  BACKUP & RESTORE
 // ═══════════════════════════════════════════════════
+// Stores that hold real user data and must survive a device change.
+// Deliberately excluded: spt_swipe_position_v1, spt_bell_seen_v27 and the
+// reminder flags — per-device UI state that should not follow a restore.
+const BACKUP_STORES=[
+  {key:'spt_v2',                   label:'saved days'},
+  {key:'spt_draft_v2',             label:'active draft'},
+  {key:'spt_drafts_v1',            label:'unsaved drafts'},
+  {key:'spt_section_config_v1',    label:'custom sections'},
+  {key:'spt_dhikr_preferences_v1', label:'dhikr list'},
+];
+
+// schema 2 keeps every schema-1 key at the same top level, so a file written
+// here still opens in an older build and an older file still restores here.
+function buildBackupPayload(){
+  const payload={_meta:{app:'Spiritual Tracker',version:'3.1.0-clean-integrated',schema:2,exported:new Date().toISOString()},_unreadable:[]};
+  BACKUP_STORES.forEach(({key})=>{
+    const raw=_lsRead(key);
+    if(raw===null||raw===''){payload[key]=null;return;}
+    try{ payload[key]=JSON.parse(raw); }
+    catch(e){ payload[key]=null; payload._unreadable.push(key); }
+  });
+  return payload;
+}
+
 function exportBackup(){
   try{
-    const history=getStorage();
-    const draft=localStorage.getItem('spt_draft_v2')||null;
-    const payload={_meta:{app:'Spiritual Tracker',version:'3.1.0-clean-integrated',exported:new Date().toISOString()},spt_v2:history,spt_draft_v2:draft?JSON.parse(draft):null};
+    const payload=buildBackupPayload();
+    const dayCount=payload.spt_v2?Object.keys(payload.spt_v2).length:0;
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;a.download=`spiritual-tracker-backup-${new Date().toISOString().slice(0,10)}.json`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-    showBackupStatus('✅ Backup downloaded successfully!','success');
-  }catch(e){showBackupStatus('❌ Export failed — please try again.','error');}
+    if(payload._unreadable.length){
+      showBackupStatus('⚠️ Backup downloaded, but '+payload._unreadable.length+' store(s) could not be read and are not in the file.','error');
+    }else{
+      showBackupStatus('✅ Backup downloaded — '+dayCount+' day'+(dayCount===1?'':'s')+', plus your sections, drafts and dhikr list.','success');
+    }
+    return payload;
+  }catch(e){showBackupStatus('❌ Export failed — please try again.','error');return null;}
+}
+
+// A backup file is untrusted input. Keep only well-formed day entries so a
+// corrupt or hand-edited file cannot inject junk keys into saved history.
+function sanitiseBackupHistory(raw){
+  const days={};let skipped=0;
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
+    Object.keys(raw).forEach(k=>{
+      const v=raw[k];
+      if(_validRecordDateKey(k)&&v&&typeof v==='object'&&!Array.isArray(v)) days[k]=v;
+      else skipped++;
+    });
+  }
+  return {days,skipped};
+}
+
+// Applies a parsed backup. Returns a result object so this is testable without
+// a FileReader. Stores absent from the file are left untouched, which is what
+// makes older schema-1 files safe to restore.
+function applyBackupPayload(payload,{confirmFn=confirm}={}){
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)||!payload.spt_v2)
+    return {ok:false,reason:'not-a-backup'};
+
+  const {days,skipped}=sanitiseBackupHistory(payload.spt_v2);
+  const dayCount=Object.keys(days).length;
+  if(!dayCount) return {ok:false,reason:'no-valid-days',skipped};
+
+  const willReplace=BACKUP_STORES.filter(s=>s.key!=='spt_v2'&&payload[s.key]).map(s=>s.label);
+  const prompt='⚠️ Restore this backup?\n\n'
+    +'• '+dayCount+' saved day'+(dayCount===1?'':'s')+' will be merged in\n'
+    +(skipped?'• '+skipped+' unreadable entr'+(skipped===1?'y':'ies')+' will be skipped\n':'')
+    +(willReplace.length?'• '+willReplace.join(', ')+' will be replaced\n':'')
+    +'\nA day with the same date is overwritten by the backup, and unsaved work on the day you are viewing is replaced.\n\nContinue?';
+  if(!confirmFn(prompt)) return {ok:false,reason:'cancelled'};
+
+  if(!setStorage(Object.assign({},getStorage(),days)))
+    return {ok:false,reason:'write-failed',detail:storageErrorText()};
+
+  const restored=['saved days'];
+  const put=(key,label,valid)=>{
+    const v=payload[key];
+    if(v===undefined||v===null||!valid(v))return;
+    if(_lsWrite(key,JSON.stringify(v))&&label)restored.push(label);
+  };
+  const isObj=v=>typeof v==='object'&&!Array.isArray(v);
+  put('spt_draft_v2',null,isObj);
+  put('spt_drafts_v1','unsaved drafts',isObj);
+  put('spt_section_config_v1','custom sections',isObj);
+  put('spt_dhikr_preferences_v1','dhikr list',Array.isArray);
+
+  return {ok:true,dayCount,skipped,restored};
 }
 
 function importBackup(event){
   const file=event.target.files[0];if(!file)return;
+  const clear=()=>{event.target.value='';};
   const reader=new FileReader();
+  reader.onerror=function(){showBackupStatus('❌ Could not read that file.','error');clear();};
   reader.onload=function(e){
-    try{
-      const payload=JSON.parse(e.target.result);
-      if(!payload||!payload.spt_v2){showBackupStatus('❌ Invalid backup file.','error');return;}
-      if(!confirm('⚠️ Merge backup into current data? Same-day entries will be overwritten. Continue?')){event.target.value='';return;}
-      const merged=Object.assign({},getStorage(),payload.spt_v2);
-      setStorage(merged);
-      if(payload.spt_draft_v2)localStorage.setItem('spt_draft_v2',JSON.stringify(payload.spt_draft_v2));
-      showBackupStatus('✅ Backup restored! '+Object.keys(payload.spt_v2).length+' days imported.','success');
-      updateStreakUI();event.target.value='';
-    }catch(err){showBackupStatus('❌ Could not read file.','error');event.target.value='';}
+    let payload;
+    try{ payload=JSON.parse(e.target.result); }
+    catch(err){ showBackupStatus('❌ That file is not valid JSON.','error');clear();return; }
+
+    const r=applyBackupPayload(payload);
+    if(!r.ok){
+      if(r.reason==='cancelled'){clear();return;}
+      const msg=r.reason==='not-a-backup' ? '❌ That is not a Spiritual Tracker backup file.'
+        : r.reason==='no-valid-days'      ? '❌ This backup contains no readable days.'
+        : '❌ Restore failed — '+(r.detail||'please try again.');
+      showBackupStatus(msg,'error');clear();return;
+    }
+
+    // Rebuild from what was just restored: config first, then the visible day.
+    loadSectionConfig();
+    applySectionConfig();
+    loadActiveDate();
+    updateStreakUI();
+    buildDiaryFeed();
+    showBackupStatus('✅ Restored '+r.dayCount+' day'+(r.dayCount===1?'':'s')+' — '+r.restored.join(', ')+'.'
+      +(r.skipped?' '+r.skipped+' invalid entr'+(r.skipped===1?'y':'ies')+' skipped.':''),'success');
+    clear();
   };
   reader.readAsText(file);
 }
@@ -3388,7 +3545,7 @@ function renderNaflRows(){
           <input class="cb-input" type="checkbox" ${r.checked?'checked':''} onchange="toggleNafl(${r.id})">
           <div class="cb-box"></div>
         </label>
-        <input class="vol-other-input" type="text" value="${r.name.replace(/"/g,'&quot;')}" placeholder="Nafl prayer name…" oninput="updateNaflName(${r.id},this.value)" style="max-width:none;flex:1;">
+        <input class="vol-other-input" type="text" value="${escapeHTML(r.name)}" placeholder="Nafl prayer name…" oninput="updateNaflName(${r.id},this.value)" style="max-width:none;flex:1;">
       </div>
       <div class="vol-pts" style="margin:0 6px;">+1 pt</div>
       <button class="nafl-remove-btn" onclick="removeNaflRow(${r.id})">×</button>
@@ -3456,7 +3613,7 @@ function renderDhikrItems(){
     const ptsDisplay = pts % 1 === 0 ? pts : pts.toFixed(1);
     return `<div class="dhikr-item-row">
       <div class="dhikr-item-top">
-        <div class="dhikr-item-name" title="${item.name.replace(/"/g,'&quot;')}">${item.name}</div>
+        <div class="dhikr-item-name" title="${escapeHTML(item.name)}">${escapeHTML(item.name)}</div>
         <span style="font-size:10px;color:var(--muted);flex-shrink:0;">Count:</span>
         <input class="count-input" type="number" min="0" value="${item.count||''}" placeholder="0"
           oninput="updateDhikrCount(${item.id},this.value)" style="width:62px;flex-shrink:0;">
@@ -4114,7 +4271,9 @@ function _historyEntryToDraft(entry){
 
 function _applyDraftForActiveDate(draft){
   if(!draft)return false;
-  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}
+  // If this staging write fails, restoreDraft() sees a date mismatch and falls
+  // back to the per-date draft map, so the correct day is still loaded.
+  _lsWrite(DRAFT_KEY,JSON.stringify(draft));
   return restoreDraft();
 }
 
