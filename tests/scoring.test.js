@@ -211,8 +211,13 @@ test('backup export and restore keep scoringVersion', () => {
 
 test('reports: a negative gaze average is shown and does not inflate other shares', () => {
   const app = loadApp();
-  const day = { score: 20, maxScore: 60, salahScore: 20, gazeScore: -10, musicScore: 10, dhikrScore: 0,
-    quranScore: 0, fastScore: 0, habitsScore: 0, gaze: 'relapse', scoringVersion: 3 };
+  // Inputs give Salah 20, Gaze -10, Music-Free 10. The stored per-section
+  // fields are deliberately wrong (as on a day pulled from the cloud): reports
+  // must derive section points from the inputs, never from these fields.
+  const day = { score: 20, maxScore: 60, gaze: 'relapse', musicFree: true, scoringVersion: 3,
+    salahData: { Fajr: 3, Dhuhr: 3, Asr: 3, Maghrib: 3, Isha: 3 },
+    voluntary: { tahajjud: true, ishraq: true, chast: true, extraNafl: [{ name: 'x', checked: true }] },
+    salahScore: 0, gazeScore: 0, musicScore: 0, dhikrScore: 0, quranScore: 0, fastScore: 0, habitsScore: 0 };
   const history = { '2026-06-01': day, '2026-06-02': day };
   const html = app.buildAnalytics(Object.keys(history), history);
   assert.match(html, /Gaze<\/span><strong>-10 pts\/day/, 'the gaze row is shown even with no positive days');
