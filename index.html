@@ -206,13 +206,13 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .gaze-option.selected-success{border-color:rgba(61,220,132,.5);background:rgba(61,220,132,.07);}
 .gaze-option.selected-nottracked{border-color:var(--border);}
 .gaze-option.selected-compromised{border-color:rgba(255,179,71,.5);background:rgba(255,179,71,.07);}
-.gaze-option.selected-relapse{border-color:rgba(255,107,107,.5);background:rgba(255,107,107,.07);}
+.gaze-option.selected-relapse{border-color:rgba(255,179,71,.5);background:rgba(255,179,71,.07);}
 .radio-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .3s;}
 .radio-dot.checked{border-color:var(--green);background:var(--green);}
 .radio-dot.checked::after{content:'';width:6px;height:6px;border-radius:50%;background:#000;}
 .radio-dot.checked-warn{border-color:var(--amber);}
 .radio-dot.checked-warn::after{content:'';width:6px;height:6px;border-radius:50%;background:var(--amber);}
-.radio-dot.checked-danger{border-color:#ff6b6b;}
+.radio-dot.checked-danger{border-color:var(--amber);}
 .radio-dot.checked-danger::after{content:'';width:6px;height:6px;border-radius:50%;background:#ff6b6b;}
 .gaze-label{flex:1;}
 .gaze-name{font-size:13px;font-weight:600;color:var(--text);}
@@ -1357,14 +1357,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="gaze-option" data-val="compromised" onclick="selectGaze(this)">
           <div class="radio-dot" id="rd-compromised"></div>
           <div class="gaze-label"><div class="gaze-name">⚠️ Compromised</div><div class="gaze-desc">Gaze compromised — partial failure</div></div>
-          <div class="gaze-pts-chip" style="color:var(--muted)">0 pts</div>
+          <div class="gaze-pts-chip" style="background:rgba(255,179,71,.1);border-radius:8px;padding:2px 7px;color:var(--amber)">−5 pts</div>
         </div>
         <div class="gaze-option" data-val="relapse" onclick="selectGaze(this)">
           <div class="radio-dot" id="rd-relapse"></div>
           <div class="gaze-label"><div class="gaze-name">🔴 Relapse / Explicit</div><div class="gaze-desc">Fell into explicit content — be honest</div></div>
-          <div class="gaze-pts-chip" style="color:var(--muted)">0 pts</div>
+          <div class="gaze-pts-chip" style="background:rgba(255,179,71,.1);border-radius:8px;padding:2px 7px;color:var(--amber)">−10 pts</div>
         </div>
       </div>
+      <div class="section-subtitle" id="gaze-score-note" style="margin-top:8px">A lapse lowers the day’s score but never below 0 — the daily total can’t go negative.</div>
       <div class="trigger-field-wrap" id="trigger-wrap" style="display:none">
         <div class="trigger-label">⚡ TRIGGER / REASON — What led to this relapse?</div>
         <textarea class="trigger-field" id="trigger-text" rows="2" placeholder="Be honest with yourself. What triggered it? (e.g. boredom, loneliness, late night, specific app...)"></textarea>
@@ -2347,10 +2348,17 @@ function buildSalahRows(){
 // ═══════════════════════════════════════════════════
 //  SCORE CALCULATIONS
 // ═══════════════════════════════════════════════════
-// Every section scores >= 0: recording a lapse is honest observation, never a
-// deduction. Days saved under these rules carry scoringVersion 2; days saved
-// before carry none and keep their stored scores unchanged (legacy scoring).
-const SCORING_VERSION = 2;
+// Gaze is a signed measurement of a lapse's severity (success +10, compromised
+// -5, relapse -10): measurement, not punishment. Every other section scores
+// >= 0, and the daily total is floored at 0, so other sections offset a lapse
+// but a lapse alone never makes the day negative.
+// A saved day's scoringVersion records the rules it was scored under:
+//   none (legacy) - signed gaze, total not floored (saved before 2026-10-01)
+//   2             - lapses scored 0, every section floored at 0
+//   3             - signed gaze, other sections floored at 0, total floored at 0
+// Saved days keep their version and stored scores; only an explicit save
+// rescores a day, under the current version.
+const SCORING_VERSION = 3;
 function extraNaflPts(){
   // Count extra nafl rows that are checked
   return extraNaflRows.filter(r=>r.checked).length;
@@ -2374,8 +2382,8 @@ function calcSalahScore(){
 
 function calcGazeScore(){
   if(!isSectionEnabled('gaze')) return 0;
-  const m={nottracked:0,success:10,compromised:0,relapse:0};
-  return Math.max(0, m[gazeVal]||0);
+  const m={nottracked:0,success:10,compromised:-5,relapse:-10};
+  return m[gazeVal]||0;
 }
 
 function calcMusicScore(){
@@ -2434,7 +2442,7 @@ function calcMaxScore(){
 }
 
 function calcTotalScore(){
-  return calcSalahScore()+calcGazeScore()+calcMusicScore()+calcDhikrScore()+calcQuranScore()+calcFastScore()+calcHabitsScore()+calcCustomSectionsScore();
+  return Math.max(0, calcSalahScore()+calcGazeScore()+calcMusicScore()+calcDhikrScore()+calcQuranScore()+calcFastScore()+calcHabitsScore()+calcCustomSectionsScore());
 }
 
 // ═══════════════════════════════════════════════════
@@ -2449,7 +2457,7 @@ function updateScore(){
   const fast   = calcFastScore();
   const habPts = calcHabitsScore();
   const customPts = calcCustomSectionsScore();
-  const total  = salah+gaze+music+dhikr+quran+fast+habPts+customPts;
+  const total  = Math.max(0, salah+gaze+music+dhikr+quran+fast+habPts+customPts);
   const maxPts = calcMaxScore();
 
   // Ring
@@ -2494,6 +2502,7 @@ function updateScore(){
   // Breakdown
   document.getElementById('bd-salah').textContent  = salah;
   document.getElementById('bd-gaze').textContent   = gaze;
+  document.getElementById('bd-gaze').style.color   = gaze<0 ? 'var(--amber)' : 'var(--green)';
   document.getElementById('bd-music').textContent  = music;
   document.getElementById('bd-dhikr').textContent  = dhikr;
   document.getElementById('bd-quran').textContent  = quran;
@@ -2504,7 +2513,7 @@ function updateScore(){
   // Gaze badge colour
   const gazeBadge = document.getElementById('gaze-pts-badge');
   if(gaze>0){gazeBadge.style.color='var(--green)';gazeBadge.style.borderColor='rgba(61,220,132,.3)';gazeBadge.style.background='rgba(61,220,132,.1)';}
-  else if(gaze<0){gazeBadge.style.color='#ff6b6b';gazeBadge.style.borderColor='rgba(255,107,107,.3)';gazeBadge.style.background='rgba(255,107,107,.1)';}
+  else if(gaze<0){gazeBadge.style.color='var(--amber)';gazeBadge.style.borderColor='rgba(255,179,71,.3)';gazeBadge.style.background='rgba(255,179,71,.1)';}
   else{gazeBadge.style.color='var(--green)';gazeBadge.style.borderColor='rgba(61,220,132,.3)';gazeBadge.style.background='rgba(61,220,132,.1)';}
 
   if(pct>=1) triggerConfetti();
@@ -2935,14 +2944,14 @@ function buildAnalytics(days, history){
   const sectionData=_analyticsSectionData(valid,history);
   const core=sectionData.filter(s=>s.key!=='fast' && !(s.key==='habits' && s.avg===0));
   const strongest=core.slice().sort((a,b)=>b.avg-a.avg)[0]||sectionData.slice().sort((a,b)=>b.avg-a.avg)[0];
-  const focus=core.filter(s=>s.avg>0 || s.engaged>0).slice().sort((a,b)=>a.avg-b.avg)[0]||null;
-  const totalAvgPoints=sectionData.reduce((a,s)=>a+s.avg,0);
-  const breakdownRows=sectionData.filter(s=>s.avg>0||s.engaged>0);
+  const focus=core.filter(s=>s.avg!==0 || s.engaged>0).slice().sort((a,b)=>a.avg-b.avg)[0]||null;
+  const totalAvgPoints=sectionData.reduce((a,s)=>a+Math.max(0,s.avg),0);
+  const breakdownRows=sectionData.filter(s=>s.avg!==0||s.engaged>0);
   const maxAvg=Math.max(...breakdownRows.map(s=>s.avg),1);
   const breakdownHTML=breakdownRows.map(s=>{
-    const share=totalAvgPoints>0?(s.avg/totalAvgPoints*100):0;
+    const share=totalAvgPoints>0?(Math.max(0,s.avg)/totalAvgPoints*100):0;
     const width=Math.max(0,Math.min(100,s.avg/maxAvg*100));
-    return `<div class="contribution-row"><div class="contribution-icon">${s.icon}</div><div class="contribution-main"><div class="contribution-top"><span>${escapeHTML(s.name)}</span><strong>${Math.round(s.avg*10)/10} pts/day</strong></div><div class="contribution-track"><div class="contribution-fill" style="width:${width}%"></div></div><div class="contribution-meta"><span>${s.engaged}/${totalDays} active days</span><span>${Math.round(share)}% of avg tracked points</span></div></div></div>`;
+    return `<div class="contribution-row"><div class="contribution-icon">${s.icon}</div><div class="contribution-main"><div class="contribution-top"><span>${escapeHTML(s.name)}</span><strong>${Math.round(s.avg*10)/10} pts/day</strong></div><div class="contribution-track"><div class="contribution-fill" style="width:${width}%"></div></div><div class="contribution-meta"><span>${s.engaged}/${totalDays} active days</span><span>${s.avg<0?'lowers the daily total':Math.round(share)+'% of avg tracked points'}</span></div></div></div>`;
   }).join('');
 
   const chartDays=days.slice(-14);
