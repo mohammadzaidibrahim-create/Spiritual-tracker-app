@@ -1,0 +1,2 @@
+create index if not exists mentor_notes_mentor_idx on public.mentor_notes(mentor_id, created_at desc);
+create index if not exists mentor_notes_subject_idx on public.mentor_notes(subject_user_id, created_at desc);
