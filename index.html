@@ -1357,12 +1357,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="gaze-option" data-val="compromised" onclick="selectGaze(this)">
           <div class="radio-dot" id="rd-compromised"></div>
           <div class="gaze-label"><div class="gaze-name">⚠️ Compromised</div><div class="gaze-desc">Gaze compromised — partial failure</div></div>
-          <div class="gaze-pts-chip" style="background:rgba(255,179,71,.1);border-radius:8px;padding:2px 7px;color:var(--amber)">−5 pts</div>
+          <div class="gaze-pts-chip" style="color:var(--muted)">0 pts</div>
         </div>
         <div class="gaze-option" data-val="relapse" onclick="selectGaze(this)">
           <div class="radio-dot" id="rd-relapse"></div>
           <div class="gaze-label"><div class="gaze-name">🔴 Relapse / Explicit</div><div class="gaze-desc">Fell into explicit content — be honest</div></div>
-          <div class="gaze-pts-chip" style="background:rgba(255,107,107,.1);border-radius:8px;padding:2px 7px;color:#ff6b6b">−10 pts</div>
+          <div class="gaze-pts-chip" style="color:var(--muted)">0 pts</div>
         </div>
       </div>
       <div class="trigger-field-wrap" id="trigger-wrap" style="display:none">
@@ -2001,6 +2001,7 @@ function _localPayloadToRow(dateKey,payload){
     record_date:dateKey,
     score:Number.isFinite(Number(payload.score))?Math.round(Number(payload.score)*100)/100:0,
     max_score:Number.isFinite(Number(payload.maxScore))?Math.round(Number(payload.maxScore)*100)/100:0,
+    scoring_version:Number.isInteger(payload.scoringVersion)?payload.scoringVersion:null,
     fardh_salah:payload.salahData||{},
     nafl_salah:payload.voluntary||{},
     khushu:{value:payload.khushu||''},
@@ -2026,6 +2027,7 @@ function _rowToLocalPayload(row){
   return {
     score:Number(row.score)||0,
     maxScore:Number(row.max_score)||0,
+    ...(row.scoring_version!=null?{scoringVersion:Number(row.scoring_version)}:{}),
     salahScore:0,gazeScore:0,musicScore:row.music_free?10:0,dhikrScore:0,quranScore:0,fastScore:fasting.done?20:0,
     habitsScore:0,
     salahData:row.fardh_salah||{},
@@ -2345,6 +2347,10 @@ function buildSalahRows(){
 // ═══════════════════════════════════════════════════
 //  SCORE CALCULATIONS
 // ═══════════════════════════════════════════════════
+// Every section scores >= 0: recording a lapse is honest observation, never a
+// deduction. Days saved under these rules carry scoringVersion 2; days saved
+// before carry none and keep their stored scores unchanged (legacy scoring).
+const SCORING_VERSION = 2;
 function extraNaflPts(){
   // Count extra nafl rows that are checked
   return extraNaflRows.filter(r=>r.checked).length;
@@ -2363,18 +2369,18 @@ function calcSalahScore(){
   if(document.getElementById('vol-chast')?.checked) s+=1;
   // Dynamic extra nafl rows
   s += extraNaflPts();
-  return s;
+  return Math.max(0, s);
 }
 
 function calcGazeScore(){
   if(!isSectionEnabled('gaze')) return 0;
-  const m={nottracked:0,success:10,compromised:-5,relapse:-10};
-  return m[gazeVal]||0;
+  const m={nottracked:0,success:10,compromised:0,relapse:0};
+  return Math.max(0, m[gazeVal]||0);
 }
 
 function calcMusicScore(){
   if(!isSectionEnabled('music')) return 0;
-  return document.getElementById('music-free')?.checked ? 10 : 0;
+  return Math.max(0, document.getElementById('music-free')?.checked ? 10 : 0);
 }
 
 function calcDhikrScore(){
@@ -2385,7 +2391,7 @@ function calcDhikrScore(){
     const cnt = parseInt(item.count) || 0;
     s += cnt / 100;
   });
-  return s;
+  return Math.max(0, s);
 }
 
 function calcQuranScore(){
@@ -2396,20 +2402,20 @@ function calcQuranScore(){
   if(document.getElementById('quran-onepage')?.checked) s+=5;
   if(document.getElementById('quran-kahf')?.checked) s+=20;
   if(document.getElementById('quran-nightly')?.checked) s+=2;
-  return s;
+  return Math.max(0, s);
 }
 
 function calcFastScore(){
   if(isHaydMode || !isSectionEnabled('fast')) return 0;
-  return document.getElementById('fast-done')?.checked ? 20 : 0;
+  return Math.max(0, document.getElementById('fast-done')?.checked ? 20 : 0);
 }
 
 function calcHabitsScore(){
   if(!isSectionEnabled('habits')) return 0;
-  return habits.filter(h=>h.done).length * 10;
+  return Math.max(0, habits.filter(h=>h.done).length * 10);
 }
 
-function calcCustomSectionsScore(){return sectionConfig.custom.reduce((sum,s)=>{if(!isSectionEnabled(s.id))return sum;const st=customSectionState[s.id]||{};return sum+s.tasks.reduce((a,t)=>a+(st[t.id]?Number(t.points)||0:0),0);},0);}
+function calcCustomSectionsScore(){return sectionConfig.custom.reduce((sum,s)=>{if(!isSectionEnabled(s.id))return sum;const st=customSectionState[s.id]||{};return sum+Math.max(0,s.tasks.reduce((a,t)=>a+(st[t.id]?Number(t.points)||0:0),0));},0);}
 function calcCustomSectionsMax(){return sectionConfig.custom.reduce((sum,s)=>isSectionEnabled(s.id)?sum+s.tasks.reduce((a,t)=>a+(Number(t.points)||0),0):sum,0);}
 function getCustomSectionSnapshot(){const out={};sectionConfig.custom.forEach(s=>{const st=customSectionState[s.id]||{};out[s.id]={name:s.name,tasks:s.tasks.map(t=>({id:t.id,name:t.name,points:Number(t.points)||0,done:!!st[t.id]}))};});return out;}
 
@@ -2627,6 +2633,7 @@ function _origSaveDay(){
   const dayPayload = {
     score:        calcTotalScore(),
     maxScore:     calcMaxScore(),
+    scoringVersion: SCORING_VERSION,
     salahScore:   calcSalahScore(),
     gazeScore:    calcGazeScore(),
     musicScore:   calcMusicScore(),
