@@ -1209,7 +1209,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="streak-info">
           <div class="streak-label">Current Streak</div>
           <div class="streak-value zero" id="current-streak-val">0</div>
-          <div class="streak-unit">DAYS &gt;10 PTS</div>
+          <div class="streak-unit" id="current-streak-unit">ACTIVE DAYS</div>
         </div>
       </div>
       <div class="streak-card best-card" id="best-streak-card">
@@ -3225,34 +3225,87 @@ updateKhushu = function(){ _origUpdateKhushu(); triggerAutosave(); };
 // ═══════════════════════════════════════════════════
 //  STREAK COUNTER
 // ═══════════════════════════════════════════════════
-function calcStreaks(){
-  const history=getStorage();const today=new Date();
-  let currentStreak=0,bestStreak=0,tempStreak=0;
-  const allKeys=Object.keys(history).sort();
-  for(let i=0;i<allKeys.length;i++){
-    const d=history[allKeys[i]];
-    if(d&&(d.score||0)>10){tempStreak++;if(tempStreak>bestStreak)bestStreak=tempStreak;}
-    else tempStreak=0;
+// Streaks measure engagement with the tracker, never performance: a day is
+// active when it holds at least one genuine user-recorded input, whatever its
+// score. Recording a lapse is an input like any other. Hayd days are paused:
+// they neither extend nor break a streak. Owner decisions P0-01..P0-04.
+function _dayHasGenuineInput(d){
+  if(!d||typeof d!=='object')return false;
+  if(Object.values(d.salahData||{}).some(v=>Number(v)>0))return true;
+  const vol=d.voluntary||{};
+  if(vol.tahajjud||vol.ishraq||vol.chast||(Array.isArray(vol.extraNafl)&&vol.extraNafl.some(r=>r&&r.checked)))return true;
+  if(d.khushu)return true;
+  if(d.gaze&&d.gaze!=='nottracked')return true;
+  if(String(d.trigger||'').trim())return true;
+  if(d.musicFree||d.fast)return true;
+  if(Array.isArray(d.dhikrData)&&d.dhikrData.some(x=>(parseInt(x&&x.count)||0)>0))return true;
+  const q=d.quran||{};
+  if(q.done||q.onepage||q.kahf||q.nightly||Number(q.mins)>0||Number(q.pages)>0)return true;
+  if(Number(d.habitsCount)>0||(Array.isArray(d.habits)&&d.habits.some(h=>h&&h.done)))return true;
+  if(Object.values(d.customSectionData||{}).some(s=>Array.isArray(s&&s.tasks)&&s.tasks.some(t=>t&&t.done)))return true;
+  const r=d.reflection||{};
+  return !!(String(r.win||'').trim()||String(r.improve||'').trim());
+}
+function _streakDayState(d){
+  if(!d)return 'missing';
+  if(d.isHaydMode)return 'paused';
+  return _dayHasGenuineInput(d)?'active':'inactive';
+}
+
+// MIGRATION BRIDGE, not a streak algorithm. Earned badges are permanent: a badge
+// earned under the earlier counting (score > 10 on consecutive saved days, gaps
+// ignored) must never be revoked by the corrected streak above. This repeats
+// that earlier counting only over days saved before the cutover, so it can keep
+// what was already earned but never grows from new activity. Badges earned from
+// here on come from the engagement streak alone. Owner decision P0-04.
+const STREAK_RULES_CUTOVER=Date.parse('2026-10-02T00:00:00.000Z');
+function _legacyBestStreak(history){
+  let best=0,run=0;
+  Object.keys(history).sort().forEach(k=>{
+    const d=history[k];
+    if(!d||Date.parse(d.savedAt)>=STREAK_RULES_CUTOVER)return;
+    if((d.score||0)>10){run++;if(run>best)best=run;}else run=0;
+  });
+  return best;
+}
+
+function calcStreaks(today){
+  const history=getStorage();
+  const todayK=getDateKey(today||new Date());
+  const keys=Object.keys(history).filter(k=>_validRecordDateKey(k)&&k<=todayK).sort();
+  let currentStreak=0,pausedInCurrent=0,bestStreak=0,run=0;
+  if(keys.length){
+    // Best: every calendar day from the first record to today. A missing or
+    // empty day ends a run; today is still in progress and cannot end one.
+    for(const d=_dateFromKey(keys[0]);;d.setDate(d.getDate()+1)){
+      const k=getDateKey(d),s=_streakDayState(history[k]);
+      if(s==='active'){if(++run>bestStreak)bestStreak=run;}
+      else if(s!=='paused'&&k!==todayK)run=0;
+      if(k===todayK)break;
+    }
+    // Current: back from today, counting active days and stepping over paused ones.
+    for(const d=_dateFromKey(todayK);getDateKey(d)>=keys[0];d.setDate(d.getDate()-1)){
+      const k=getDateKey(d),s=_streakDayState(history[k]);
+      if(s==='active')currentStreak++;
+      else if(s==='paused')pausedInCurrent++;
+      else if(k!==todayK)break;
+    }
+    if(!currentStreak)pausedInCurrent=0;
   }
-  for(let offset=0;offset<=365;offset++){
-    const d=new Date(today);d.setDate(today.getDate()-offset);
-    const key=getDateKey(d);const entry=history[key];
-    if(entry&&(entry.score||0)>10){currentStreak++;}
-    else if(offset===0){continue;}
-    else break;
-  }
-  return {currentStreak,bestStreak};
+  return {currentStreak,bestStreak,pausedInCurrent,legacyBestStreak:_legacyBestStreak(history)};
 }
 
 function updateStreakUI(){
-  const {currentStreak,bestStreak}=calcStreaks();
+  const {currentStreak,bestStreak,pausedInCurrent,legacyBestStreak}=calcStreaks();
   const curEl=document.getElementById('current-streak-val');
+  const unitEl=document.getElementById('current-streak-unit');
   const bestEl=document.getElementById('best-streak-val');
   const card=document.getElementById('current-streak-card');
   if(curEl){curEl.textContent=currentStreak;curEl.className='streak-value'+(currentStreak===0?' zero':'');}
+  if(unitEl)unitEl.textContent='ACTIVE DAYS'+(pausedInCurrent?' · '+pausedInCurrent+' PAUSED':'');
   if(bestEl)bestEl.textContent=bestStreak;
   if(card){if(currentStreak>0)card.classList.add('active-streak');else card.classList.remove('active-streak');}
-  updateMilestoneBadges(bestStreak);
+  updateMilestoneBadges(Math.max(bestStreak,legacyBestStreak));
 }
 
 const _origSaveDay2 = _origSaveDay;
