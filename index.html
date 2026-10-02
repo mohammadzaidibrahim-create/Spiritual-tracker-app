@@ -2359,6 +2359,61 @@ function buildSalahRows(){
 // Saved days keep their version and stored scores; only an explicit save
 // rescores a day, under the current version.
 const SCORING_VERSION = 3;
+
+// Canonical section scoring. Each section's points are defined once, in terms
+// of the inputs a saved day stores. The live score (built from the form) and
+// every read-back of a saved day, under the rules of that day's own version
+// (reports now; the cloud pull later), go through these same functions.
+const SCORING_RULES={
+  legacy:{gaze:{nottracked:0,success:10,compromised:-5,relapse:-10},floor:false},
+  2:{gaze:{nottracked:0,success:10,compromised:0,relapse:0},floor:true},
+  3:{gaze:{nottracked:0,success:10,compromised:-5,relapse:-10},floor:true},
+};
+function _scoringRules(version){return SCORING_RULES[version]||SCORING_RULES.legacy;}
+const SECTION_POINTS={
+  salah:(d)=>{if(d.isHaydMode)return 0;const v=d.voluntary||{};
+    return Object.values(d.salahData||{}).reduce((a,x)=>a+(parseInt(x)||0),0)+(v.tahajjud?2:0)+(v.ishraq?1:0)+(v.chast?1:0)
+      +(Array.isArray(v.extraNafl)?v.extraNafl.filter(r=>r&&r.checked).length:0);},
+  gaze:(d,rules)=>rules.gaze[d.gaze]||0,
+  music:(d)=>d.musicFree?10:0,
+  dhikr:(d)=>(Array.isArray(d.dhikrData)?d.dhikrData:[]).reduce((a,x)=>a+(parseInt(x&&x.count)||0)/100,0),
+  quran:(d)=>{const q=d.quran||{};return (q.done?10:0)+(q.onepage?5:0)+(q.kahf?20:0)+(q.nightly?2:0);},
+  fast:(d)=>d.fast&&!d.isHaydMode?20:0,
+  habits:(d)=>(Array.isArray(d.habits)?d.habits.filter(h=>h&&h.done).length:Number(d.habitsCount)||0)*10,
+};
+// Only gaze may be negative, and only under rules that say so (legacy, 3).
+function _sectionPointsFor(key,day,version){
+  const rules=_scoringRules(version),v=SECTION_POINTS[key](day||{},rules);
+  return key==='gaze'||!rules.floor?v:Math.max(0,v);
+}
+function _customPointsFor(sec,version){
+  const p=(sec&&Array.isArray(sec.tasks)?sec.tasks:[]).reduce((a,t)=>a+(t&&t.done?Number(t.points)||0:0),0);
+  return _scoringRules(version).floor?Math.max(0,p):p;
+}
+function _dayTotalPoints(sectionSum,version){return _scoringRules(version).floor?Math.max(0,sectionSum):sectionSum;}
+// Points each section of a saved day earned, from its stored inputs, under
+// the rules of its own scoringVersion. Never reads stored per-section scores.
+function daySectionPoints(day){
+  const d=day||{},out={custom:{}};
+  SECTION_TRACKERS.forEach(s=>{out[s.key]=_sectionPointsFor(s.key,d,d.scoringVersion);});
+  Object.keys(d.customSectionData||{}).forEach(id=>{out.custom[id]=_customPointsFor(d.customSectionData[id],d.scoringVersion);});
+  return out;
+}
+// Whether each section of a saved day was genuinely recorded, whatever points
+// it earned. Mirrors the per-section inputs of _dayHasGenuineInput (Step 4).
+function daySectionRecorded(day){
+  const d=day||{},v=d.voluntary||{},q=d.quran||{},out={custom:{}};
+  out.salah=Object.values(d.salahData||{}).some(x=>Number(x)>0)||!!(v.tahajjud||v.ishraq||v.chast)
+    ||(Array.isArray(v.extraNafl)&&v.extraNafl.some(r=>r&&r.checked))||!!d.khushu;
+  out.gaze=(!!d.gaze&&d.gaze!=='nottracked')||!!String(d.trigger||'').trim();
+  out.music=!!d.musicFree;
+  out.dhikr=Array.isArray(d.dhikrData)&&d.dhikrData.some(x=>(parseInt(x&&x.count)||0)>0);
+  out.quran=!!(q.done||q.onepage||q.kahf||q.nightly)||Number(q.mins)>0||Number(q.pages)>0;
+  out.fast=!!d.fast;
+  out.habits=Number(d.habitsCount)>0||(Array.isArray(d.habits)&&d.habits.some(h=>h&&h.done));
+  Object.keys(d.customSectionData||{}).forEach(id=>{const t=(d.customSectionData[id]||{}).tasks;out.custom[id]=Array.isArray(t)&&t.some(x=>x&&x.done);});
+  return out;
+}
 function extraNaflPts(){
   // Count extra nafl rows that are checked
   return extraNaflRows.filter(r=>r.checked).length;
@@ -2366,64 +2421,48 @@ function extraNaflPts(){
 
 function calcSalahScore(){
   if(isHaydMode || !isSectionEnabled('salah')) return 0;
-  let s = 0;
-  for(let i=0;i<5;i++){
-    const el=document.getElementById('salah-'+i);
-    if(el) s+=parseInt(el.value)||0;
-  }
-  // Voluntary: Tahajjud = +2, others = +1
-  if(document.getElementById('vol-tahajjud')?.checked) s+=2;
-  if(document.getElementById('vol-ishraq')?.checked) s+=1;
-  if(document.getElementById('vol-chast')?.checked) s+=1;
-  // Dynamic extra nafl rows
-  s += extraNaflPts();
-  return Math.max(0, s);
+  const salahData={};
+  for(let i=0;i<5;i++) salahData[i]=document.getElementById('salah-'+i)?.value;
+  const voluntary={tahajjud:!!document.getElementById('vol-tahajjud')?.checked,ishraq:!!document.getElementById('vol-ishraq')?.checked,
+    chast:!!document.getElementById('vol-chast')?.checked,extraNafl:extraNaflRows};
+  return _sectionPointsFor('salah',{salahData,voluntary},SCORING_VERSION);
 }
 
 function calcGazeScore(){
   if(!isSectionEnabled('gaze')) return 0;
-  const m={nottracked:0,success:10,compromised:-5,relapse:-10};
-  return m[gazeVal]||0;
+  return _sectionPointsFor('gaze',{gaze:gazeVal},SCORING_VERSION);
 }
 
 function calcMusicScore(){
   if(!isSectionEnabled('music')) return 0;
-  return Math.max(0, document.getElementById('music-free')?.checked ? 10 : 0);
+  return _sectionPointsFor('music',{musicFree:!!document.getElementById('music-free')?.checked},SCORING_VERSION);
 }
 
 function calcDhikrScore(){
   if(!isSectionEnabled('dhikr')) return 0;
   // +0.5 pt per 50 counts per item (count / 100, no floor — allows decimals)
-  let s = 0;
-  dhikrItems.forEach(item => {
-    const cnt = parseInt(item.count) || 0;
-    s += cnt / 100;
-  });
-  return Math.max(0, s);
+  return _sectionPointsFor('dhikr',{dhikrData:dhikrItems},SCORING_VERSION);
 }
 
 function calcQuranScore(){
   if(!isSectionEnabled('quran')) return 0;
   // In Hayd mode Quran is bonus — still adds points but not to max
-  let s=0;
-  if(document.getElementById('quran-read')?.checked) s+=10;
-  if(document.getElementById('quran-onepage')?.checked) s+=5;
-  if(document.getElementById('quran-kahf')?.checked) s+=20;
-  if(document.getElementById('quran-nightly')?.checked) s+=2;
-  return Math.max(0, s);
+  const quran={done:!!document.getElementById('quran-read')?.checked,onepage:!!document.getElementById('quran-onepage')?.checked,
+    kahf:!!document.getElementById('quran-kahf')?.checked,nightly:!!document.getElementById('quran-nightly')?.checked};
+  return _sectionPointsFor('quran',{quran},SCORING_VERSION);
 }
 
 function calcFastScore(){
   if(isHaydMode || !isSectionEnabled('fast')) return 0;
-  return Math.max(0, document.getElementById('fast-done')?.checked ? 20 : 0);
+  return _sectionPointsFor('fast',{fast:!!document.getElementById('fast-done')?.checked},SCORING_VERSION);
 }
 
 function calcHabitsScore(){
   if(!isSectionEnabled('habits')) return 0;
-  return Math.max(0, habits.filter(h=>h.done).length * 10);
+  return _sectionPointsFor('habits',{habits},SCORING_VERSION);
 }
 
-function calcCustomSectionsScore(){return sectionConfig.custom.reduce((sum,s)=>{if(!isSectionEnabled(s.id))return sum;const st=customSectionState[s.id]||{};return sum+Math.max(0,s.tasks.reduce((a,t)=>a+(st[t.id]?Number(t.points)||0:0),0));},0);}
+function calcCustomSectionsScore(){return sectionConfig.custom.reduce((sum,s)=>{if(!isSectionEnabled(s.id))return sum;const st=customSectionState[s.id]||{};return sum+_customPointsFor({tasks:s.tasks.map(t=>({points:t.points,done:!!st[t.id]}))},SCORING_VERSION);},0);}
 function calcCustomSectionsMax(){return sectionConfig.custom.reduce((sum,s)=>isSectionEnabled(s.id)?sum+s.tasks.reduce((a,t)=>a+(Number(t.points)||0),0):sum,0);}
 function getCustomSectionSnapshot(){const out={};sectionConfig.custom.forEach(s=>{const st=customSectionState[s.id]||{};out[s.id]={name:s.name,tasks:s.tasks.map(t=>({id:t.id,name:t.name,points:Number(t.points)||0,done:!!st[t.id]}))};});return out;}
 
@@ -2442,7 +2481,7 @@ function calcMaxScore(){
 }
 
 function calcTotalScore(){
-  return Math.max(0, calcSalahScore()+calcGazeScore()+calcMusicScore()+calcDhikrScore()+calcQuranScore()+calcFastScore()+calcHabitsScore()+calcCustomSectionsScore());
+  return _dayTotalPoints(calcSalahScore()+calcGazeScore()+calcMusicScore()+calcDhikrScore()+calcQuranScore()+calcFastScore()+calcHabitsScore()+calcCustomSectionsScore(), SCORING_VERSION);
 }
 
 // ═══════════════════════════════════════════════════
@@ -2457,7 +2496,7 @@ function updateScore(){
   const fast   = calcFastScore();
   const habPts = calcHabitsScore();
   const customPts = calcCustomSectionsScore();
-  const total  = Math.max(0, salah+gaze+music+dhikr+quran+fast+habPts+customPts);
+  const total  = _dayTotalPoints(salah+gaze+music+dhikr+quran+fast+habPts+customPts, SCORING_VERSION);
   const maxPts = calcMaxScore();
 
   // Ring
@@ -2850,27 +2889,26 @@ function switchTab(tab){
 let _lineChart = null;
 let _pieChart  = null;
 
+// Per-section report data. Points come from each day's stored inputs under its
+// own scoring version (daySectionPoints), never from stored per-section score
+// fields, which days pulled from the cloud do not carry. "recorded" counts the
+// days a section was genuinely filled in, independent of the points it earned.
 function _analyticsSectionData(valid,history){
-  const builtins=SECTION_TRACKERS.map(s=>{
-    const avg=valid.length?valid.reduce((a,k)=>a+(Number(history[k][s.key+'Score'])||0),0)/valid.length:0;
-    const engaged=valid.filter(k=>(Number(history[k][s.key+'Score'])||0)>0).length;
-    return {key:s.key,icon:s.icon,name:s.name,avg,engaged,custom:false};
-  });
+  const n=Math.max(valid.length,1),days=valid.map(k=>history[k]);
+  const pts=days.map(daySectionPoints),rec=days.map(daySectionRecorded);
+  const builtins=SECTION_TRACKERS.map(s=>({key:s.key,icon:s.icon,name:s.name,custom:false,
+    avg:pts.reduce((a,p)=>a+p[s.key],0)/n,recorded:rec.filter(r=>r[s.key]).length}));
   const customMap={};
-  valid.forEach(k=>{
-    const saved=history[k].customSectionData||{};
-    Object.keys(saved).forEach(id=>{
-      const sec=saved[id]||{};
-      if(!customMap[id]) customMap[id]={key:id,icon:'📝',name:sec.name||'Custom Section',avg:0,engaged:0,custom:true};
-      let pts=0;
-      (sec.tasks||[]).forEach(t=>{if(t.done)pts+=Number(t.points)||0;});
-      customMap[id].avg+=pts;
-      if(pts>0)customMap[id].engaged++;
-    });
-  });
-  Object.values(customMap).forEach(x=>x.avg/=Math.max(valid.length,1));
+  days.forEach((d,i)=>Object.keys(d.customSectionData||{}).forEach(id=>{
+    if(!customMap[id]) customMap[id]={key:id,icon:'📝',name:(d.customSectionData[id]||{}).name||'Custom Section',avg:0,recorded:0,custom:true};
+    customMap[id].avg+=(pts[i].custom[id]||0)/n;
+    if(rec[i].custom[id])customMap[id].recorded++;
+  }));
   return [...builtins,...Object.values(customMap)];
 }
+// A section's share of the average positive points per day. A section whose
+// average is negative (only gaze can be) has no share: it lowers the total.
+function _sectionShare(s,positiveTotal){return s.avg>0&&positiveTotal>0?s.avg/positiveTotal*100:0;}
 
 function _analyticsInsightHTML({totalDays,periodDays,avgPct,recentPct,priorPct,strongest,focus,gazeRelapses,quranDays,dhikrComplete,musicFreeDays,salahAvg}={}){
   const delta=priorPct===null||priorPct===undefined?null:Math.round(recentPct-priorPct);
@@ -2924,11 +2962,11 @@ function buildAnalytics(days, history){
   const recentPct=recentKeys.length?recentKeys.reduce((a,k)=>{const d=history[k],m=Number(d.maxScore)||0;return a+(m>0?(Number(d.score)||0)/m*100:0)},0)/recentKeys.length:avgPct;
   const priorPct=priorKeys.length?priorKeys.reduce((a,k)=>{const d=history[k],m=Number(d.maxScore)||0;return a+(m>0?(Number(d.score)||0)/m*100:0)},0)/priorKeys.length:null;
 
-  const salahAvg=Math.round(valid.reduce((a,k)=>a+(Number(history[k].salahScore)||0),0)/totalDays);
+  const salahAvg=Math.round(valid.reduce((a,k)=>a+daySectionPoints(history[k]).salah,0)/totalDays);
   const gazeWins=valid.filter(k=>history[k].gaze==='success').length;
   const gazeRelapses=valid.filter(k=>history[k].gaze==='relapse').length;
   const musicFreeDays=valid.filter(k=>!!history[k].musicFree).length;
-  const dhikrComplete=valid.filter(k=>(Number(history[k].dhikrScore)||0)>=15).length;
+  const dhikrComplete=valid.filter(k=>daySectionPoints(history[k]).dhikr>=15).length;
   const quranDays=valid.filter(k=>history[k].quran?.done).length;
   const fastDays=valid.filter(k=>!!history[k].fast).length;
   const kahfDays=valid.filter(k=>!!history[k].quran?.kahf).length;
@@ -2944,14 +2982,15 @@ function buildAnalytics(days, history){
   const sectionData=_analyticsSectionData(valid,history);
   const core=sectionData.filter(s=>s.key!=='fast' && !(s.key==='habits' && s.avg===0));
   const strongest=core.slice().sort((a,b)=>b.avg-a.avg)[0]||sectionData.slice().sort((a,b)=>b.avg-a.avg)[0];
-  const focus=core.filter(s=>s.avg!==0 || s.engaged>0).slice().sort((a,b)=>a.avg-b.avg)[0]||null;
+  const focus=core.filter(s=>s.avg!==0 || s.recorded>0).slice().sort((a,b)=>a.avg-b.avg)[0]||null;
   const totalAvgPoints=sectionData.reduce((a,s)=>a+Math.max(0,s.avg),0);
-  const breakdownRows=sectionData.filter(s=>s.avg!==0||s.engaged>0);
+  const avgDailyPoints=scores.reduce((a,b)=>a+b,0)/scores.length;   // stored daily totals
+  const breakdownRows=sectionData.filter(s=>s.avg!==0||s.recorded>0);
   const maxAvg=Math.max(...breakdownRows.map(s=>s.avg),1);
   const breakdownHTML=breakdownRows.map(s=>{
-    const share=totalAvgPoints>0?(Math.max(0,s.avg)/totalAvgPoints*100):0;
+    const share=_sectionShare(s,totalAvgPoints);
     const width=Math.max(0,Math.min(100,s.avg/maxAvg*100));
-    return `<div class="contribution-row"><div class="contribution-icon">${s.icon}</div><div class="contribution-main"><div class="contribution-top"><span>${escapeHTML(s.name)}</span><strong>${Math.round(s.avg*10)/10} pts/day</strong></div><div class="contribution-track"><div class="contribution-fill" style="width:${width}%"></div></div><div class="contribution-meta"><span>${s.engaged}/${totalDays} active days</span><span>${s.avg<0?'lowers the daily total':Math.round(share)+'% of avg tracked points'}</span></div></div></div>`;
+    return `<div class="contribution-row"><div class="contribution-icon">${s.icon}</div><div class="contribution-main"><div class="contribution-top"><span>${escapeHTML(s.name)}</span><strong>${Math.round(s.avg*10)/10} pts/day</strong></div><div class="contribution-track"><div class="contribution-fill" style="width:${width}%"></div></div><div class="contribution-meta"><span>${s.recorded}/${totalDays} recorded days</span><span>${s.avg<0?'lowers the daily total':Math.round(share)+'% of avg tracked points'}</span></div></div></div>`;
   }).join('');
 
   const chartDays=days.slice(-14);
@@ -2960,8 +2999,9 @@ function buildAnalytics(days, history){
   const uid='chart_'+Date.now();
   const lineId=uid+'_line';
   const pieId=uid+'_pie';
-  const pieLabels=breakdownRows.map(s=>s.name);
-  const pieData=breakdownRows.map(s=>Math.round(s.avg*10)/10);
+  const pieRows=breakdownRows.filter(s=>s.avg>0);   // a chart slice cannot be negative
+  const pieLabels=pieRows.map(s=>s.name);
+  const pieData=pieRows.map(s=>Math.round(s.avg*10)/10);
   const pieColors=['#f5c842','#d7b84a','#4fc3f7','#6fcf97','#b39ddb','#7fb7d6','#c9b36a','#8f8f8f'];
 
   // A compact calendar-like rhythm map is more useful than decorative daily bars.
@@ -3003,7 +3043,7 @@ function buildAnalytics(days, history){
   <div class="chartjs-card breakdown-card">
     <div class="chart-title">🧭 Where Your Points Come From</div>
     <div class="chart-subline">Average contribution per logged day — quantities are shown directly below, so nothing depends on hovering the chart.</div>
-    <div class="breakdown-visual"><div class="donut-wrap"><canvas id="${pieId}"></canvas><div class="donut-center"><strong>${Math.round(totalAvgPoints*10)/10}</strong><span>avg pts/day</span></div></div><div class="contribution-list">${breakdownHTML||'<div class="no-data" style="padding:15px">No section points recorded yet.</div>'}</div></div>
+    <div class="breakdown-visual"><div class="donut-wrap"><canvas id="${pieId}"></canvas><div class="donut-center"><strong>${Math.round(avgDailyPoints*10)/10}</strong><span>avg pts/day</span></div></div><div class="contribution-list">${breakdownHTML||'<div class="no-data" style="padding:15px">No section points recorded yet.</div>'}</div></div>
   </div>
   <div class="rhythm-card">
     <div class="chart-title">🗓️ Consistency Map</div>
@@ -3011,7 +3051,7 @@ function buildAnalytics(days, history){
     <div class="rhythm-legend"><span><i class="legend-dot excellent"></i>75%+</span><span><i class="legend-dot steady"></i>50–74%</span><span><i class="legend-dot started"></i>1–49%</span><span><i class="legend-dot empty"></i>No entry</span></div>
     <div class="rhythm-grid ${periodDays>14?'monthly':''}">${rhythm}</div>
   </div>
-  <div class="task-breakdown"><div class="chart-title">📊 Section Performance</div>${sectionData.filter(s=>s.avg>0||s.engaged>0).map(s=>{const pct=totalAvgPoints>0?Math.round(s.avg/totalAvgPoints*100):0;return `<div class="breakdown-row"><div class="breakdown-icon">${s.icon}</div><div class="breakdown-info"><div class="breakdown-name">${escapeHTML(s.name)}</div><div class="breakdown-meta">${Math.round(s.avg*10)/10} pts/day • ${s.engaged}/${totalDays} active days</div></div><div class="breakdown-bar-wrap"><div class="breakdown-bar-fill" style="width:${Math.max(0,pct)}%;background:var(--gold)"></div></div><div class="breakdown-pct">${pct}%</div></div>`;}).join('')}</div>
+  <div class="task-breakdown"><div class="chart-title">📊 Section Performance</div>${breakdownRows.map(s=>{const pct=Math.round(_sectionShare(s,totalAvgPoints));return `<div class="breakdown-row"><div class="breakdown-icon">${s.icon}</div><div class="breakdown-info"><div class="breakdown-name">${escapeHTML(s.name)}</div><div class="breakdown-meta">${Math.round(s.avg*10)/10} pts/day • ${s.recorded}/${totalDays} recorded days${s.avg<0?' • lowers the daily total':''}</div></div><div class="breakdown-bar-wrap"><div class="breakdown-bar-fill" style="width:${pct}%;background:var(--gold)"></div></div><div class="breakdown-pct">${s.avg<0?'—':pct+'%'}</div></div>`;}).join('')}</div>
   <div class="hours-report">
     <div class="chart-title">🕌 Spiritual Stats</div>
     <div class="stats-stat-grid">
@@ -3946,8 +3986,8 @@ function getRecommendationData(){
   const relapses=rows.filter(d=>d.gaze==='relapse').length;
   const gazeSuccess=rows.filter(d=>d.gaze==='success').length;
   const quranDays=rows.filter(d=>d.quran?.done).length;
-  const dhikrDays=rows.filter(d=>(d.dhikrScore||0)>=15).length;
-  const salahAvg=Math.round(rows.reduce((a,d)=>a+(d.salahScore||0),0)/rows.length);
+  const dhikrDays=rows.filter(d=>daySectionPoints(d).dhikr>=15).length;
+  const salahAvg=Math.round(rows.reduce((a,d)=>a+daySectionPoints(d).salah,0)/rows.length);
   const maxSalah=19;
   const suggestions=[];
   if(relapses>0) suggestions.push({icon:'👁️',title:'Protect your gaze',text:`There ${relapses===1?'was':'were'} ${relapses} recorded relapse day${relapses===1?'':'s'} in the last ${recent.length} logged days. Look at the trigger you recorded and choose one concrete barrier before the next vulnerable moment.`,action:'One safeguard is enough for now.'});
