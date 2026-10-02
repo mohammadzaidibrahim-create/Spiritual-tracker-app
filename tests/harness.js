@@ -131,7 +131,7 @@ function makeDocument() {
  * Boots the app script in a fresh sandbox.
  * @returns the sandbox — every top-level function/const is a property on it.
  */
-function loadApp({ storage = makeStorage(), document = makeDocument() } = {}) {
+function loadApp({ storage = makeStorage(), document = makeDocument(), globals = {} } = {}) {
   const alerts = [];
   const confirms = [];
   const sandbox = {
@@ -155,6 +155,8 @@ function loadApp({ storage = makeStorage(), document = makeDocument() } = {}) {
     DOMException: globalThis.DOMException,
     crypto: globalThis.crypto,
   };
+  // Extra globals the script sees at load time (e.g. a fake `supabase` library).
+  Object.assign(sandbox, globals);
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
