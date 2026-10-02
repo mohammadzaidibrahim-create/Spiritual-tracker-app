@@ -56,6 +56,13 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .account-btn.primary{border-color:rgba(79,195,247,.45);color:var(--blue);background:rgba(79,195,247,.06);}
 .account-btn.danger{color:#ff8b8b;border-color:rgba(255,107,107,.3);}
 .account-sync-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:9px;}
+.sync-day-banner{background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.35);border-radius:12px;padding:10px 12px;margin:-4px 0 12px;font-size:11.5px;line-height:1.5;color:var(--text);}
+.sync-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px;}
+.sync-actions button{padding:7px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;cursor:pointer;}
+.sync-issues{margin-top:10px;border-top:1px solid var(--border);padding-top:9px;}
+.sync-issues-title{font-size:11px;font-weight:800;color:var(--amber);margin-bottom:6px;}
+.sync-issue{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:7px;font-size:11px;line-height:1.45;color:var(--text);}
+.sync-issue small{display:block;color:var(--muted);font-size:10px;margin-top:2px;}
 .account-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:9800;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s;}
 .account-modal-overlay.open{opacity:1;pointer-events:all;}
 .account-modal{width:100%;max-width:430px;background:var(--card);border:1px solid rgba(245,200,66,.25);border-radius:20px;padding:22px 20px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5);}
@@ -1133,6 +1140,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <div class="retro-date-status" id="retro-date-status">You’re tracking today.</div>
     </div>
+    <div class="sync-day-banner" id="sync-day-banner" role="status" style="display:none"></div>
 
     <!-- ═══ Daily Qur'an + Hadith Guidance — outside swipe tracker ═══ -->
     <div class="daily-guidance-card" id="daily-guidance-card">
@@ -1635,6 +1643,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         </label>
       </div>
       <div class="account-sync-note" id="account-sync-note">Local-first: nothing is uploaded until you sign in and explicitly enable Cloud Sync.</div>
+      <div class="sync-issues" id="sync-issues" style="display:none"></div>
     </div>
 
     <!-- ── Backup & Restore ── -->
@@ -1860,7 +1869,7 @@ function loadSectionConfig(){
   sectionConfig.order=[...sectionConfig.order.filter(k=>all.includes(k)),...all.filter(k=>!sectionConfig.order.includes(k))];
   all.forEach(k=>{if(sectionConfig.enabled[k]===undefined)sectionConfig.enabled[k]=true;});
 }
-function saveSectionConfig(){const ok=_lsWrite(SECTION_CONFIG_KEY,JSON.stringify(sectionConfig)); if(currentSupabaseUser&&cloudSyncEnabled){clearTimeout(window._sectionCloudTimer);window._sectionCloudTimer=setTimeout(()=>_savePreferencesToCloud().catch(console.error),600);} return ok;}
+function saveSectionConfig(){const ok=_lsWrite(SECTION_CONFIG_KEY,JSON.stringify(sectionConfig)); if(currentSupabaseUser&&cloudSyncEnabled){clearTimeout(window._sectionCloudTimer);window._sectionCloudTimer=setTimeout(()=>_savePreferencesIfChanged().catch(console.error),600);} return ok;}
 function getSectionMeta(key){return BUILTIN_SECTION_META[key]||sectionConfig.custom.find(s=>s.id===key)||{icon:'📝',name:'Custom Section',subtitle:'Personal tracker'};}
 function isSectionEnabled(key){return sectionConfig.enabled[key]!==false;}
 function getCustomSection(key){return sectionConfig.custom.find(s=>s.id===key)||null;}
@@ -1938,7 +1947,10 @@ async function submitAccountAuth(mode='signin'){
       _setAccountModalStatus('Account created. Check your email to confirm, then sign in.','success');
       return;
     }
-    if(result.data.user) await _handleSignedIn(result.data.user);
+    // Through the session gate, so the auth event fired by this same sign-in
+    // does not start a second sync.
+    if(result.data.session) _onAuthEvent(result.data.session);
+    closeAccountModal();
   }catch(err){
     console.error(err);
     _setAccountModalStatus(err.message||'Authentication failed.','error');
@@ -1950,6 +1962,7 @@ async function signOutCloud(){
   try{
     await supabaseClient.auth.signOut();
     currentSupabaseUser=null;
+    _sessionUserId=null;
     cloudSyncEnabled=false;
     updateAccountUI();
   }catch(err){console.error(err);}
@@ -1975,6 +1988,7 @@ function updateAccountUI(){
     actions.innerHTML='<button class="account-btn primary" onclick="openAccountModal()">🔐 Sign In / Create Account</button>';
     _cloudSetStatus('','Local-only mode. Nothing is uploaded.');
   }
+  _renderSyncUI();
 }
 
 async function setCloudSyncEnabled(enabled){
@@ -1985,7 +1999,7 @@ async function setCloudSyncEnabled(enabled){
     return;
   }
   try{
-    await _savePreferencesToCloud();
+    await _savePreferencesIfChanged();
     updateAccountUI();
     if(cloudSyncEnabled) await syncNow();
   }catch(err){
@@ -1997,8 +2011,12 @@ async function setCloudSyncEnabled(enabled){
 }
 
 function _localPayloadToRow(dateKey,payload){
+  return {user_id:currentSupabaseUser.id,..._rowContent(dateKey,payload)};
+}
+
+// The columns a saved day uploads. _localPayloadToRow adds user_id.
+function _rowContent(dateKey,payload){
   return {
-    user_id:currentSupabaseUser.id,
     record_date:dateKey,
     score:Number.isFinite(Number(payload.score))?Math.round(Number(payload.score)*100)/100:0,
     max_score:Number.isFinite(Number(payload.maxScore))?Math.round(Number(payload.maxScore)*100)/100:0,
@@ -2061,6 +2079,290 @@ function _validRecordDateKey(dateKey){
   return /^\d{4}-\d{2}-\d{2}$/.test(String(dateKey)) && !Number.isNaN(Date.parse(String(dateKey)+'T00:00:00Z'));
 }
 
+// ═══════════════════════════════════════════════════
+//  SYNC STATE (Step 6.1)
+//  A saved day carries a _sync note with the fingerprint of the version last
+//  known to match the cloud, so only days whose content changed are uploaded.
+//  Sync reconciles data and never scores: a day taken from the cloud is stored
+//  exactly as it is there, and a day changed on both sides is held with both
+//  versions until the user chooses. Unsaved drafts record the saved version
+//  they started from, so a newer saved day always wins over a stale draft.
+// ═══════════════════════════════════════════════════
+const SYNC_ROW_COLUMNS=['record_date','score','max_score','scoring_version','fardh_salah','nafl_salah','khushu','gaze','music_free','dhikr','quran','fasting','habits','custom_sections','reflection','is_hayd_mode','is_sisters_mode','saved_at'];
+const SYNC_PAGE_SIZE=500;
+const SYNC_BATCH_SIZE=50;
+const PREFS_SYNC_KEY='spt_prefs_sync_v1';
+const SYNC_MIGRATED_KEY='spt_sync_migrated_v1';
+let _syncPromise=null,_syncQueued=false,_sessionUserId=null;
+// The form: fingerprint of the saved version it was loaded from (null = no
+// saved day; undefined = not loaded yet) and of its inputs at that moment.
+let _formBase,_formLoadedInputs=null,_dayBanner=null;
+
+function _stableJson(v){
+  if(v===undefined)return 'null';
+  if(v===null||typeof v!=='object')return JSON.stringify(v);
+  if(Array.isArray(v))return '['+v.map(_stableJson).join(',')+']';
+  return '{'+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+_stableJson(v[k])).join(',')+'}';
+}
+// cyrb53: a fast, well-distributed 53-bit string hash.
+function _cyrb53(str){
+  let h1=0xdeadbeef,h2=0x41c6ce57;
+  for(let i=0;i<str.length;i++){const ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}
+  h1=Math.imul(h1^(h1>>>16),2246822507);h1^=Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507);h2^=Math.imul(h1^(h1>>>13),3266489909);
+  return 4294967296*(2097151&h2)+(h1>>>0);
+}
+function _fingerprint(prefix,value){return prefix+_cyrb53(_stableJson(value)).toString(36);}
+
+// Fingerprint of exactly the uploaded columns, so a day and its cloud row
+// fingerprint identically (saved_at compared as a moment in time).
+function _rowFingerprint(row){
+  const o={};
+  for(const c of SYNC_ROW_COLUMNS){
+    let v=row?row[c]:undefined;
+    if(c==='score'||c==='max_score')v=Number(v)||0;
+    else if(c==='scoring_version')v=(v===null||v===undefined||v==='')?null:Number(v);
+    else if(c==='saved_at'){const t=v?Date.parse(v):NaN;v=Number.isFinite(t)?t:null;}
+    else if(c==='music_free'||c==='is_hayd_mode'||c==='is_sisters_mode')v=!!v;
+    else if(v===undefined)v=null;
+    o[c]=v;
+  }
+  return _fingerprint('fp1:',o);
+}
+function _recordFingerprint(dateKey,record){
+  if(!record||typeof record!=='object')return null;
+  const row=_rowContent(dateKey,record);
+  row.saved_at=record.savedAt||null;   // never "now": the fingerprint must be stable
+  return _rowFingerprint(row);
+}
+
+// What the form shows, comparable whether it comes from a draft or a saved day.
+const _num=v=>{const x=Number(v);return Number.isFinite(x)?x:0;};
+function _doneTasks(csd){
+  const out={};
+  Object.keys(csd||{}).sort().forEach(id=>{
+    const t=((csd[id]||{}).tasks||[]).filter(x=>x&&x.done).map(x=>String(x.id)).sort();
+    if(t.length)out[id]=t;
+  });
+  return out;
+}
+function _inputsFromDraft(d){
+  d=d||{};
+  const sv=d.salahVals||{},vol=d.voluntary||{};
+  return {
+    salah:[0,1,2,3,4].map(i=>_num(sv[i])),
+    vol:[!!vol.tahajjud,!!vol.ishraq,!!vol.chast],
+    extra:(d.extraNaflRows||[]).map(r=>[String(r.name||''),!!r.checked]),
+    khushu:String(d.khushu||''),
+    gaze:String(d.gazeVal||'nottracked'),
+    trigger:d.gazeVal==='relapse'?String(d.trigger||''):'',
+    music:!!d.musicFree,
+    dhikr:(d.dhikrItems||[]).filter(x=>_num(x&&x.count)>0).map(x=>[String(x.name||''),_num(x.count)]),
+    custom:_doneTasks(d.customSectionData),
+    quran:[!!d.quranRead,!!d.quranOnepage,!!d.quranKahf,!!d.quranNightly,_num(d.quranMins),_num(d.quranPages)],
+    fast:!!d.fast,
+    habits:(d.habits||[]).map(h=>[String(h.name||''),!!h.done,_num(h.mins)]),
+    win:String(d.reflectionWin||''),improve:String(d.reflectionImprove||''),
+    hayd:!!d.isHaydMode,sisters:!!d.isSistersMode,
+  };
+}
+function _inputsFromRecord(r){
+  r=r||{};
+  const s=r.salahData||{},v=r.voluntary||{},q=r.quran||{},rf=r.reflection||{};
+  const gaze=r.gaze&&typeof r.gaze==='object'?r.gaze.value:r.gaze;
+  const trigger=r.trigger||(r.gaze&&typeof r.gaze==='object'?r.gaze.trigger:'');
+  return {
+    salah:[s.Fajr,(s.Dhuhr!==undefined?s.Dhuhr:s.Jummah),s.Asr,s.Maghrib,s.Isha].map(_num),
+    vol:[!!v.tahajjud,!!v.ishraq,!!v.chast],
+    extra:(v.extraNafl||[]).map(x=>[String(x.name||''),!!x.checked]),
+    khushu:String(r.khushu||''),
+    gaze:String(gaze||'nottracked'),
+    trigger:gaze==='relapse'?String(trigger||''):'',
+    music:!!r.musicFree,
+    dhikr:(r.dhikrData||[]).filter(x=>_num(x&&x.count)>0).map(x=>[String(x.name||''),_num(x.count)]),
+    custom:_doneTasks(r.customSectionData),
+    quran:[!!q.done,!!q.onepage,!!q.kahf,!!q.nightly,_num(q.mins),_num(q.pages)],
+    fast:!!r.fast,
+    habits:Array.isArray(r.habits)?r.habits.map(h=>[String(h.name||''),!!h.done,_num(h.mins)]):(r.habitNames||[]).map(n=>[String(n||''),true,0]),
+    win:String(rf.win||''),improve:String(rf.improve||''),
+    hayd:!!r.isHaydMode,sisters:!!r.isSistersMode,
+  };
+}
+const _inputsFingerprint=inputs=>_fingerprint('in1:',inputs);
+
+function _syncNote(record){return record&&typeof record==='object'&&record._sync&&typeof record._sync==='object'?record._sync:null;}
+function _stripSync(record){if(!record||typeof record!=='object')return record;const out={...record};delete out._sync;return out;}
+// A day is uploaded when its content differs from the version last confirmed
+// in the cloud, it is not held for the user's choice, and it was not already
+// rejected by the database with exactly this content.
+function _isUploadable(dateKey,record){
+  const s=_syncNote(record),fp=_recordFingerprint(dateKey,record);
+  if(s&&s.held)return false;
+  if(s&&s.h===fp)return false;
+  if(s&&s.err&&s.err.kind==='validation'&&s.err.fp===fp)return false;
+  return true;
+}
+function _syncIssues(){
+  const h=getStorage(),out=[];
+  Object.keys(h).filter(_validRecordDateKey).sort().forEach(d=>{
+    const s=_syncNote(h[d]);if(!s)return;
+    if(s.held)out.push({dateKey:d,kind:'held',reason:s.held.reason});
+    else if(s.err&&s.err.kind==='validation'&&s.err.fp===_recordFingerprint(d,h[d]))out.push({dateKey:d,kind:'failed',code:s.err.code,message:s.err.message});
+  });
+  return out;
+}
+
+// ── Drafts: an unsaved draft exists only while the form differs from its saved day ──
+function _deleteDateDraft(dateKey){
+  const m=_getDraftMap();let ok=true;
+  if(m[dateKey]){delete m[dateKey];ok=_lsWrite(DRAFTS_KEY,JSON.stringify(m));}
+  try{const a=JSON.parse(_lsRead(DRAFT_KEY)||'null');if(a&&a.date===dateKey)localStorage.removeItem(DRAFT_KEY);}catch(e){}
+  return ok;
+}
+function _readDraftFor(dateKey){
+  let d=_getDateDraft(dateKey);
+  if(!d){try{const a=JSON.parse(_lsRead(DRAFT_KEY)||'null');if(a&&a.date===dateKey)d=a;}catch(e){}}
+  return d&&d.date===dateKey?d:null;
+}
+function _markFormLoaded(entry){
+  _formBase=entry?_recordFingerprint(activeDateKey,entry):null;
+  _formLoadedInputs=_inputsFingerprint(_inputsFromDraft(_buildDraftFromForm()));
+}
+function _formHasEdits(){return _formLoadedInputs!==null&&_inputsFingerprint(_inputsFromDraft(_buildDraftFromForm()))!==_formLoadedInputs;}
+// After the saved day (or the empty form) is loaded, apply this date's draft
+// only if it is still valid. A draft taken from an older saved version is
+// stale: the saved day wins and the draft is removed (SY-3).
+function _applyValidDraft(dateKey,entry){
+  const draft=_readDraftFor(dateKey);
+  if(!draft)return 'none';
+  const base=draft.base;
+  if(!entry){_emptyTrackerForActiveDate();_applyDraftToForm(draft);return 'draft';}
+  if(!base||base.legacy){
+    if(_inputsFingerprint(_inputsFromDraft(draft))===_inputsFingerprint(_inputsFromRecord(entry))){_deleteDateDraft(dateKey);return 'none';}
+    _dayBanner={kind:'legacy-draft',dateKey,at:draft.savedAt};
+    return 'legacy';
+  }
+  if(base.fp===_recordFingerprint(dateKey,entry)){_emptyTrackerForActiveDate();_applyDraftToForm(draft);return 'draft';}
+  const genuine=_inputsFingerprint(_inputsFromDraft(draft))!==_inputsFingerprint(_inputsFromRecord(entry));
+  _deleteDateDraft(dateKey);
+  if(genuine)_dayBanner={kind:'stale-draft',dateKey,at:draft.savedAt};
+  return 'stale';
+}
+// Start-up: today's saved day is loaded even without a draft (F-1).
+function _openActiveDateAtBoot(){
+  _loadingActiveDate=true;
+  const entry=getStorage()[activeDateKey];
+  if(entry)_applyDraftToForm(_historyEntryToDraft(entry));else applyModesUI();
+  _markFormLoaded(entry);
+  const r=_applyValidDraft(activeDateKey,entry);
+  _loadingActiveDate=false;
+  _renderSyncUI();
+  return r==='draft'||!!entry;
+}
+// One-time clean-up of drafts written before Step 6.1, when opening a date
+// always wrote one: exact copies of the saved day are removed, others are kept
+// and the user is asked about them when the date is opened.
+function _migrateSyncV1(){
+  if(_lsRead(SYNC_MIGRATED_KEY))return;
+  const history=getStorage(),m=_getDraftMap();let changed=false;
+  Object.keys(m).forEach(d=>{
+    const dr=m[d];
+    if(!dr||typeof dr!=='object'||dr.base)return;
+    const entry=history[d];
+    if(!entry)dr.base={fp:null};
+    else if(_inputsFingerprint(_inputsFromDraft(dr))===_inputsFingerprint(_inputsFromRecord(entry)))delete m[d];
+    else dr.base={fp:null,legacy:true};
+    changed=true;
+  });
+  if(changed&&!_lsWrite(DRAFTS_KEY,JSON.stringify(m)))return;   // try again next start-up
+  try{
+    const a=JSON.parse(_lsRead(DRAFT_KEY)||'null');
+    if(a&&!a.base){
+      const entry=history[a.date];
+      if(m[a.date])_lsWrite(DRAFT_KEY,JSON.stringify(m[a.date]));
+      else if(!entry){a.base={fp:null};_lsWrite(DRAFT_KEY,JSON.stringify(a));}
+      else if(_inputsFingerprint(_inputsFromDraft(a))===_inputsFingerprint(_inputsFromRecord(entry)))localStorage.removeItem(DRAFT_KEY);
+      else{a.base={fp:null,legacy:true};_lsWrite(DRAFT_KEY,JSON.stringify(a));}
+    }
+  }catch(e){}
+  _lsWrite(SYNC_MIGRATED_KEY,new Date().toISOString());
+}
+// After a sync: if the open day changed, reload it, unless the user is
+// editing it, in which case they are asked (D4).
+function _refreshActiveDayAfterSync(){
+  if(_formBase===undefined)return;
+  const entry=getStorage()[activeDateKey];
+  const fp=entry?_recordFingerprint(activeDateKey,entry):null;
+  if(fp===_formBase)return;
+  if(_formHasEdits()){_dayBanner={kind:'cloud-update',dateKey:activeDateKey};_renderSyncUI();return;}
+  loadActiveDate();
+}
+
+// ── Banners and the "needs your attention" list ──
+function _fmtWhen(iso){
+  const t=Date.parse(iso);
+  if(!Number.isFinite(t))return 'earlier';
+  return new Date(t).toLocaleString([],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function _renderSyncUI(){
+  const el=document.getElementById('sync-day-banner');
+  if(el){
+    const s=_syncNote(getStorage()[activeDateKey]);
+    let html='';
+    if(s&&s.held){
+      const msg=s.held.reason==='stale-base'
+        ?'You saved edits that were made on an older version of this day. Both versions are kept until you choose.'
+        :'This day was changed on this device and in the cloud. Both versions are kept until you choose.';
+      html=`<div>⚠️ ${msg}</div><div class="sync-actions"><button onclick="syncKeepThisDevice('${activeDateKey}')">Keep this device</button><button onclick="syncUseOtherVersion('${activeDateKey}')">Use the other version</button></div>`;
+    }else if(_dayBanner&&_dayBanner.dateKey===activeDateKey){
+      if(_dayBanner.kind==='cloud-update')
+        html=`<div>☁️ This day was updated on another device.</div><div class="sync-actions"><button onclick="syncLoadSavedVersion()">Load saved version</button><button onclick="syncDismissBanner()">Keep editing</button></div>`;
+      else if(_dayBanner.kind==='stale-draft')
+        html=`<div>ℹ️ Unsaved edits from ${escapeHTML(_fmtWhen(_dayBanner.at))} were replaced by a newer saved version of this day.</div><div class="sync-actions"><button onclick="syncDismissBanner()">OK</button></div>`;
+      else if(_dayBanner.kind==='legacy-draft')
+        html=`<div>📝 Unsaved changes from ${escapeHTML(_fmtWhen(_dayBanner.at))} were found for this day.</div><div class="sync-actions"><button onclick="syncUseLegacyDraft()">Use them</button><button onclick="syncDiscardLegacyDraft()">Discard</button></div>`;
+    }
+    el.innerHTML=html;
+    el.style.display=html?'block':'none';
+  }
+  const box=document.getElementById('sync-issues');
+  if(box){
+    const issues=_syncIssues();
+    box.innerHTML=issues.length?`<div class="sync-issues-title">⚠️ Needs your attention</div>`+issues.map(i=>{
+      if(i.kind==='held'){
+        const why=i.reason==='stale-base'?'Saved from an older version of this day':'Changed on this device and in the cloud';
+        return `<div class="sync-issue">📅 ${i.dateKey}<small>${why} — both versions are kept.</small><div class="sync-actions"><button onclick="syncKeepThisDevice('${i.dateKey}')">Keep this device</button><button onclick="syncUseOtherVersion('${i.dateKey}')">Use the other version</button><button onclick="selectActiveDate('${i.dateKey}')">Open day</button></div></div>`;
+      }
+      const why=i.code==='23514'?'Its saved score is below 0 (an older record), which the cloud does not accept. The day was not changed.':'The cloud rejected this day: '+escapeHTML(i.message||i.code||'unknown reason')+'. The day was not changed.';
+      return `<div class="sync-issue">📅 ${i.dateKey}<small>Not uploaded. ${why}</small><div class="sync-actions"><button onclick="selectActiveDate('${i.dateKey}')">Open day</button></div></div>`;
+    }).join(''):'';
+    box.style.display=issues.length?'block':'none';
+  }
+}
+function syncDismissBanner(){_dayBanner=null;_renderSyncUI();}
+function syncLoadSavedVersion(){_deleteDateDraft(activeDateKey);_dayBanner=null;loadActiveDate();}
+function syncUseLegacyDraft(){
+  const d=_readDraftFor(activeDateKey);
+  _dayBanner=null;
+  if(d){_loadingActiveDate=true;_emptyTrackerForActiveDate();_applyDraftToForm(d);_loadingActiveDate=false;updateScore();saveDraft();}
+  _renderSyncUI();
+}
+function syncDiscardLegacyDraft(){_deleteDateDraft(activeDateKey);_dayBanner=null;_renderSyncUI();}
+// Resolving a held day keeps one side exactly as stored. Nothing is rescored.
+function _resolveHeld(dateKey,keepOther){
+  const h=getStorage(),rec=h[dateKey],s=_syncNote(rec);
+  if(!s||!s.held)return;
+  const note={v:1,h:s.held.otherSide==='cloud'?s.held.otherFp:s.h,at:s.at};
+  h[dateKey]=keepOther?{...s.held.other,_sync:note}:{...rec,_sync:note};
+  if(!setStorage(h)){showBackupStatus('⚠️ Your choice could not be saved. '+storageErrorText(),'error');return;}
+  if(keepOther&&dateKey===activeDateKey){_deleteDateDraft(dateKey);loadActiveDate();}
+  updateStreakUI();
+  _renderSyncUI();
+  if(currentSupabaseUser&&cloudSyncEnabled)syncNow();
+}
+function syncKeepThisDevice(dateKey){_resolveHeld(dateKey,false);}
+function syncUseOtherVersion(dateKey){_resolveHeld(dateKey,true);}
+
 async function _requireCloudSession(){
   if(!supabaseClient)throw new Error('Supabase client is unavailable.');
   const {data,error}=await supabaseClient.auth.getSession();
@@ -2071,9 +2373,9 @@ async function _requireCloudSession(){
   return user;
 }
 
-async function _savePreferencesToCloud(){
-  if(!currentSupabaseUser)return;
-  const payload={
+const PREFS_FIELDS=['sisters_mode','hayd_mode','sos_visible','feeling_down_visible','reminder_enabled','cloud_sync_enabled','notification_preferences','section_config'];
+function _prefsPayload(){
+  return {
     user_id:currentSupabaseUser.id,
     sisters_mode:!!isSistersMode,
     hayd_mode:!!isHaydMode,
@@ -2085,64 +2387,167 @@ async function _savePreferencesToCloud(){
     section_config:sectionConfig,
     updated_at:new Date().toISOString()
   };
+}
+// Fingerprint of the uploaded preference values (updated_at excluded).
+function _prefsFingerprint(p){const o={};PREFS_FIELDS.forEach(k=>{o[k]=p&&p[k]!==undefined?p[k]:null;});return _fingerprint('pf1:',o);}
+function _rememberPrefsSynced(fp){if(currentSupabaseUser)_lsWrite(PREFS_SYNC_KEY,JSON.stringify({uid:currentSupabaseUser.id,fp,at:new Date().toISOString()}));}
+function _prefsSyncedFp(){try{const v=JSON.parse(_lsRead(PREFS_SYNC_KEY)||'null');return v&&currentSupabaseUser&&v.uid===currentSupabaseUser.id?v.fp:null;}catch(e){return null;}}
+async function _savePreferencesToCloud(){
+  if(!currentSupabaseUser)return;
+  const payload=_prefsPayload();
   const {error}=await supabaseClient.from('user_preferences').upsert(payload,{onConflict:'user_id'});
   if(error)throw new Error('Preferences: '+_cloudErrorText(error));
+  _rememberPrefsSynced(_prefsFingerprint(payload));
+}
+async function _savePreferencesIfChanged(){
+  if(!currentSupabaseUser)return false;
+  if(_prefsSyncedFp()===_prefsFingerprint(_prefsPayload()))return false;
+  await _savePreferencesToCloud();
+  return true;
 }
 
-async function _pullCloudRecords(){
-  const {data,error}=await supabaseClient.from('daily_records').select('*').order('record_date',{ascending:false});
-  if(error)throw new Error('Pull daily records: '+_cloudErrorText(error));
-  const history=getStorage();
-  (data||[]).forEach(row=>{
-    const local=history[row.record_date];
-    const remote=_rowToLocalPayload(row);
-    const localTime=local?.savedAt?Date.parse(local.savedAt):0;
-    const remoteTime=remote.savedAt?Date.parse(remote.savedAt):0;
-    if(!local || remoteTime>localTime) history[row.record_date]=remote;
-  });
-  setStorage(history);
-  return data||[];
-}
-
-async function _pushLocalRecords(){
-  if(!currentSupabaseUser||!cloudSyncEnabled)return 0;
-  const history=getStorage();
-  const entries=Object.entries(history).filter(([dateKey,payload])=>_validRecordDateKey(dateKey)&&payload&&typeof payload==='object');
-  if(!entries.length)return 0;
-  const chunkSize=50;
-  let pushed=0;
-  for(let i=0;i<entries.length;i+=chunkSize){
-    const rows=entries.slice(i,i+chunkSize).map(([dateKey,payload])=>_localPayloadToRow(dateKey,payload));
-    const {error}=await supabaseClient.from('daily_records').upsert(rows,{onConflict:'user_id,record_date'});
-    if(error)throw new Error('Push daily records (batch '+(Math.floor(i/chunkSize)+1)+'): '+_cloudErrorText(error));
-    pushed+=rows.length;
+// Fetches every cloud day, page by page. Nothing local changes unless every
+// page arrives, so a sync never acts on a partial picture.
+async function _pullAllPages(){
+  const rows=[];
+  for(let from=0;;from+=SYNC_PAGE_SIZE){
+    const {data,error}=await supabaseClient.from('daily_records').select('*').order('record_date',{ascending:true}).range(from,from+SYNC_PAGE_SIZE-1);
+    if(error)throw new Error('Pull daily records: '+_cloudErrorText(error));
+    const page=data||[];
+    rows.push(...page);
+    if(page.length<SYNC_PAGE_SIZE)return rows;
   }
-  return pushed;
 }
 
-async function syncNow(){
-  if(!currentSupabaseUser||!cloudSyncEnabled)return;
-  if(_cloudSyncBusy)return;
-  _cloudSyncBusy=true;
+// Applies the pulled days in one synchronous step. A day unchanged here is
+// replaced by the cloud copy exactly as stored there; a day changed only here
+// waits for upload; a day changed on both sides (or never confirmed and
+// different) is held with both versions. Nothing is rescored.
+function _reconcilePulled(rows){
+  const history=getStorage(),now=new Date().toISOString();
+  const summary={adopted:[],held:[],missingFromCloud:[]};
+  const seen=new Set();
+  for(const row of rows){
+    const d=row.record_date;
+    if(!_validRecordDateKey(d))continue;
+    seen.add(d);
+    const rFp=_rowFingerprint(row),local=history[d];
+    if(!local||typeof local!=='object'){history[d]={..._rowToLocalPayload(row),_sync:{v:1,h:rFp,at:now}};summary.adopted.push(d);continue;}
+    const lFp=_recordFingerprint(d,local),s=_syncNote(local);
+    // A held version that exists only on this device is never dropped here;
+    // one that was an older cloud version is, once the cloud matches this device.
+    const keepHeld=!!(s&&s.held&&s.held.otherSide==='local');
+    if(lFp===rFp){history[d]={...local,_sync:keepHeld?{v:1,h:rFp,at:now,held:s.held}:{v:1,h:rFp,at:now}};continue;}
+    if(s&&s.h===lFp&&!s.held){history[d]={..._rowToLocalPayload(row),_sync:{v:1,h:rFp,at:now}};summary.adopted.push(d);continue;}
+    if(s&&s.h===rFp)continue;   // changed only here: uploaded below (or still held)
+    if(keepHeld)continue;       // resolve first; the cloud change is compared again next sync
+    const note={v:1,h:s?s.h:null,at:s?s.at:null,held:{reason:s&&s.h?'both-changed':'never-confirmed',at:now,other:_rowToLocalPayload(row),otherFp:rFp,otherSide:'cloud'}};
+    if(s&&s.err)note.err=s.err;
+    history[d]={...local,_sync:note};
+    summary.held.push(d);
+  }
+  // A day that was in the cloud but no longer is gets uploaded again.
+  Object.keys(history).forEach(d=>{
+    if(seen.has(d)||!_validRecordDateKey(d))return;
+    const s=_syncNote(history[d]);
+    if(s&&s.h&&!s.held){history[d]={...history[d],_sync:{...s,h:null}};summary.missingFromCloud.push(d);}
+  });
+  if(!setStorage(history))throw new Error('Synced days could not be saved on this device. '+storageErrorText());
+  return summary;
+}
+
+// Uploads only changed days. A failed batch is retried day by day so one bad
+// day cannot block the rest; a day the database rejects is never altered,
+// and is not retried until its content changes.
+async function _uploadChangedDays(){
+  const result={uploaded:[],failed:[]};
+  const history=getStorage();
+  const items=Object.keys(history).filter(d=>_validRecordDateKey(d)&&history[d]&&typeof history[d]==='object'&&_isUploadable(d,history[d]))
+    .map(d=>({d,fp:_recordFingerprint(d,history[d]),row:_localPayloadToRow(d,history[d])}));
+  const isDbError=e=>!!e&&/^[0-9A-Z]{5}$/.test(String(e.code||''));
+  for(let i=0;i<items.length;i+=SYNC_BATCH_SIZE){
+    const batch=items.slice(i,i+SYNC_BATCH_SIZE);
+    const {error}=await supabaseClient.from('daily_records').upsert(batch.map(x=>x.row),{onConflict:'user_id,record_date'});
+    if(!error){result.uploaded.push(...batch);continue;}
+    if(!isDbError(error)){batch.forEach(it=>result.failed.push({...it,error}));continue;}   // offline / auth: retry next sync
+    for(const it of batch){
+      const r=await supabaseClient.from('daily_records').upsert([it.row],{onConflict:'user_id,record_date'});
+      if(r.error)result.failed.push({...it,error:r.error});else result.uploaded.push(it);
+    }
+  }
+  if(result.uploaded.length||result.failed.length){
+    // Record outcomes against the current storage. The uploaded version is now
+    // the cloud's; a day edited meanwhile keeps its new content and stays pending.
+    const h=getStorage(),now=new Date().toISOString();
+    result.uploaded.forEach(it=>{
+      const rec=h[it.d];if(!rec)return;
+      const s=_syncNote(rec)||{};const note={v:1,h:it.fp,at:now};if(s.held)note.held=s.held;
+      h[it.d]={...rec,_sync:note};
+    });
+    result.failed.forEach(it=>{
+      const rec=h[it.d];if(!rec)return;
+      const s=_syncNote(rec)||{v:1,h:null,at:null},code=String(it.error.code||'');
+      h[it.d]={...rec,_sync:{...s,err:{kind:/^(22|23)/.test(code)?'validation':'transient',code,message:String(it.error.message||'').slice(0,200),at:now,fp:it.fp}}};
+    });
+    if(!setStorage(h))throw new Error('Sync results could not be saved on this device. '+storageErrorText());
+  }
+  return result;
+}
+
+function _syncSummaryText(rec,up,prefsUploaded){
+  const n=(k,w)=>`${k} ${w}${k===1?'':'s'}`;
+  const done=[];
+  if(up.uploaded.length)done.push(n(up.uploaded.length,'day')+' uploaded');
+  if(rec.adopted.length)done.push(n(rec.adopted.length,'day')+' updated from the cloud');
+  if(prefsUploaded)done.push('preferences saved');
+  let text=done.length?'☁️ Private cloud sync complete: '+done.join(', ')+'.':'☁️ Already in sync — nothing to upload.';
+  const issues=_syncIssues(),held=issues.filter(i=>i.kind==='held').length,transient=up.failed.filter(f=>!/^(22|23)/.test(String(f.error.code||''))).length;
+  const notes=[];
+  if(held)notes.push(n(held,'day')+(held===1?' needs':' need')+' your review');
+  if(issues.length-held)notes.push(n(issues.length-held,'day')+' could not be uploaded');
+  if(transient)notes.push(n(transient,'day')+' will be retried next sync');
+  if(notes.length)text+=' ⚠️ '+notes.join('; ')+' — see Private Cloud.';
+  return text;
+}
+
+async function _syncOnce(){
   _cloudSetStatus('syncing','Checking secure cloud session…');
   try{
     await _requireCloudSession();
     _cloudSetStatus('syncing','Pulling your private cloud records…');
-    await _pullCloudRecords();
-    _cloudSetStatus('syncing','Uploading your saved records…');
-    const pushed=await _pushLocalRecords();
-    _cloudSetStatus('syncing','Saving your tracker preferences…');
-    await _savePreferencesToCloud();
+    const rows=await _pullAllPages();
+    const rec=_reconcilePulled(rows);
+    _cloudSetStatus('syncing','Uploading changed days…');
+    const up=await _uploadChangedDays();
+    _cloudSetStatus('syncing','Checking your tracker preferences…');
+    const prefsUploaded=await _savePreferencesIfChanged();
     updateAccountUI();
     updateStreakUI();
     buildDiaryFeed();
-    showBackupStatus('☁️ Private cloud sync complete. '+(pushed?`${pushed} record${pushed===1?'':'s'} synced.`:'No local records needed uploading.'),'success');
+    _refreshActiveDayAfterSync();
+    _renderSyncUI();
+    const bad=up.failed.length||_syncIssues().length;
+    showBackupStatus(_syncSummaryText(rec,up,prefsUploaded),bad?'error':'success');
   }catch(err){
     console.error('[Spiritual Tracker] Cloud sync failed:',err);
     const detail=_cloudErrorText(err);
     _cloudSetStatus('error','Cloud sync failed: '+detail);
     showBackupStatus('❌ Cloud sync failed. Your local data is still safe. '+detail,'error');
-  }finally{_cloudSyncBusy=false;}
+  }
+}
+
+// One sync at a time. A request made while one runs (e.g. a save) queues
+// exactly one more run, so the new save is uploaded too.
+function syncNow(){
+  if(!currentSupabaseUser||!cloudSyncEnabled)return Promise.resolve();
+  if(_syncPromise){_syncQueued=true;return _syncPromise;}
+  _cloudSyncBusy=true;
+  _syncPromise=(async()=>{
+    try{
+      do{_syncQueued=false;await _syncOnce();}while(_syncQueued&&currentSupabaseUser&&cloudSyncEnabled);
+    }finally{_syncPromise=null;_cloudSyncBusy=false;}
+  })();
+  return _syncPromise;
 }
 
 async function _handleSignedIn(user){
@@ -2150,10 +2555,11 @@ async function _handleSignedIn(user){
   closeAccountModal();
   updateAccountUI();
   try{
-    // Merge, rather than blindly overwrite: local and cloud records are compared by saved_at.
-    await _pullCloudRecords();
-    cloudSyncEnabled=true;
+    // Preferences first: they say whether Cloud Sync is on. With it off,
+    // nothing is pulled or uploaded (D6).
     const pref=await supabaseClient.from('user_preferences').select('*').eq('user_id',user.id).maybeSingle();
+    if(pref.error)throw pref.error;
+    cloudSyncEnabled=true;   // a new account with no saved preferences keeps the existing default
     if(pref.data){
       cloudSyncEnabled=!!pref.data.cloud_sync_enabled;
       if(pref.data.section_config){
@@ -2163,6 +2569,7 @@ async function _handleSignedIn(user){
           applySectionConfig();
         }catch(e){console.warn('Section config restore failed',e);}
       }
+      _rememberPrefsSynced(_prefsFingerprint(pref.data));
     }
     const t=document.getElementById('cloud-sync-toggle');if(t)t.checked=cloudSyncEnabled;
     updateAccountUI();
@@ -2174,19 +2581,27 @@ async function _handleSignedIn(user){
   }
 }
 
-function _onAuthStateChanged(session){
-  currentSupabaseUser=session?.user||null;
-  if(!currentSupabaseUser){
+// Session gate: one full sync per signed-in session. Token refreshes and
+// repeated start-up events for the same user change nothing.
+function _onAuthEvent(session){
+  const user=session&&session.user||null;
+  if(!user){
+    currentSupabaseUser=null;
+    _sessionUserId=null;
     cloudSyncEnabled=false;
     updateAccountUI();
     return;
   }
-  _handleSignedIn(currentSupabaseUser);
+  currentSupabaseUser=user;
+  if(_sessionUserId===user.id)return;
+  _sessionUserId=user.id;
+  _handleSignedIn(user);
 }
+function _onAuthStateChanged(session){_onAuthEvent(session);}
 
 if(supabaseClient){
-  supabaseClient.auth.getSession().then(({data})=>_onAuthStateChanged(data.session)).catch(console.error);
-  supabaseClient.auth.onAuthStateChange((_event,session)=>_onAuthStateChanged(session));
+  supabaseClient.auth.getSession().then(({data})=>_onAuthEvent(data.session)).catch(console.error);
+  supabaseClient.auth.onAuthStateChange((_event,session)=>_onAuthEvent(session));
 }
 
 // ═══════════════════════════════════════════════════
@@ -2247,7 +2662,7 @@ function applyModesUI(){
   isSistersMode = document.getElementById('sisters-toggle')?.checked || false;
   isHaydMode    = isSistersMode && (document.getElementById('hayd-toggle-input')?.checked || false);
 
-  if(currentSupabaseUser && cloudSyncEnabled){ clearTimeout(window._prefSyncTimer); window._prefSyncTimer=setTimeout(()=>_savePreferencesToCloud().catch(console.error),500); }
+  if(currentSupabaseUser && cloudSyncEnabled){ clearTimeout(window._prefSyncTimer); window._prefSyncTimer=setTimeout(()=>_savePreferencesIfChanged().catch(console.error),500); }
 
   // Show/hide hayd sub-toggle
   const haydRow = document.getElementById('hayd-row');
@@ -2725,6 +3140,21 @@ function _origSaveDay(){
     savedAt: new Date().toISOString(),
   };
 
+  // Sync bookkeeping. The content above is exactly what the user entered and
+  // is scored as usual; this only carries the day's _sync note forward. If the
+  // form started from an older version than the one now stored (it changed in
+  // the cloud while the user was editing), that version is kept beside this
+  // save and nothing is uploaded until the user chooses (D3).
+  const prevDay=history[key],prevSync=_syncNote(prevDay);
+  const prevFp=prevDay?_recordFingerprint(key,prevDay):null;
+  const staleBase=!!prevDay&&_formBase!==undefined&&prevFp!==_formBase;
+  if(prevSync||staleBase){
+    const note={v:1,h:prevSync?prevSync.h:null,at:prevSync?prevSync.at:null};
+    if(staleBase)note.held={reason:'stale-base',at:new Date().toISOString(),other:_stripSync(prevDay),otherFp:prevFp,otherSide:prevSync&&prevSync.h===prevFp?'cloud':'local'};
+    else if(prevSync&&prevSync.held)note.held=prevSync.held;
+    dayPayload._sync=note;
+  }
+
   history[key] = dayPayload;
 
   const btn=document.querySelector('.save-day-btn');
@@ -2737,6 +3167,11 @@ function _origSaveDay(){
     alert('This day could not be saved.\n\n'+storageErrorText()+'\n\nYour entry is still on screen. Export a backup or free some space, then save again.');
     return false;
   }
+
+  // The day is saved: its draft is no longer needed, and the form now matches it.
+  _deleteDateDraft(key);
+  _markFormLoaded(dayPayload);
+  _renderSyncUI();
 
   // Feature 7 — ready for cloud sync injection
   _onDaySaved(key, dayPayload);
@@ -2758,13 +3193,13 @@ function toggleSOSVisibility(){
   const show = document.getElementById('sos-visible-toggle')?.checked;
   const fab  = document.getElementById('sos-fab');
   if(fab) fab.style.display = show ? 'flex' : 'none';
-  if(currentSupabaseUser&&cloudSyncEnabled)_savePreferencesToCloud().catch(console.error);
+  if(currentSupabaseUser&&cloudSyncEnabled)_savePreferencesIfChanged().catch(console.error);
 }
 function toggleDownVisibility(){
   const show = document.getElementById('down-visible-toggle')?.checked;
   const fab  = document.getElementById('down-fab');
   if(fab) fab.style.display = show ? 'flex' : 'none';
-  if(currentSupabaseUser&&cloudSyncEnabled)_savePreferencesToCloud().catch(console.error);
+  if(currentSupabaseUser&&cloudSyncEnabled)_savePreferencesIfChanged().catch(console.error);
 }
 
 // ═══════════════════════════════════════════════════
@@ -3138,8 +3573,8 @@ function _asShowSaved(ok=true){
   }
 }
 
-function saveDraft(){
-  _asShowSaving();
+// The form, as a draft-shaped object.
+function _buildDraftFromForm(){
   const salahVals={};
   for(let i=0;i<5;i++){const el=document.getElementById('salah-'+i);if(el)salahVals[i]=el.value;}
   const draft={
@@ -3174,9 +3609,23 @@ function saveDraft(){
     isHaydMode,
     savedAt:new Date().toISOString(),
   };
-  const okActive=_lsWrite(DRAFT_KEY,JSON.stringify(draft));
-  const okDated=_setDateDraft(activeDateKey,draft);
-  const ok=okActive&&okDated;
+  return draft;
+}
+
+// Keeps unsaved changes. A draft records the saved version it started from;
+// when the form matches its saved day again there is nothing to keep.
+function saveDraft(){
+  _asShowSaving();
+  const draft=_buildDraftFromForm();
+  let ok;
+  if(_formLoadedInputs!==null&&_inputsFingerprint(_inputsFromDraft(draft))===_formLoadedInputs){
+    ok=_deleteDateDraft(activeDateKey);
+  }else{
+    draft.base={fp:_formBase===undefined?null:_formBase};
+    const okActive=_lsWrite(DRAFT_KEY,JSON.stringify(draft));
+    const okDated=_setDateDraft(activeDateKey,draft);
+    ok=okActive&&okDated;
+  }
   setTimeout(()=>_asShowSaved(ok),350);
   return ok;
 }
@@ -3193,7 +3642,12 @@ function restoreDraft(){
   if(!draft||draft.date!==activeDateKey){draft=_getDateDraft(activeDateKey);}
   if(!draft||draft.date!==activeDateKey)return false;
   _lsWrite(DRAFT_KEY,JSON.stringify(draft));
+  return _applyDraftToForm(draft);
+}
 
+// Puts a draft-shaped day (an unsaved draft, or a saved day via
+// _historyEntryToDraft) into the form. Writes nothing.
+function _applyDraftToForm(draft){
   // Restore modes
   if(draft.isSistersMode !== undefined){
     const st=document.getElementById('sisters-toggle');
@@ -4380,10 +4834,7 @@ function _historyEntryToDraft(entry){
 
 function _applyDraftForActiveDate(draft){
   if(!draft)return false;
-  // If this staging write fails, restoreDraft() sees a date mismatch and falls
-  // back to the per-date draft map, so the correct day is still loaded.
-  _lsWrite(DRAFT_KEY,JSON.stringify(draft));
-  return restoreDraft();
+  return _applyDraftToForm(draft);
 }
 
 function loadActiveDate(){
@@ -4410,21 +4861,17 @@ function loadActiveDate(){
   renderDailyGuidance();
 
   const entry=getStorage()[activeDateKey];
-  const dateDraft=_getDateDraft(activeDateKey);
-  if(dateDraft){
-    _applyDraftForActiveDate(dateDraft);
-  }else if(entry){
-    _applyDraftForActiveDate(_historyEntryToDraft(entry));
-  }else{
-    applyModesUI();
-    updateScore();
-  }
+  if(entry)_applyDraftToForm(_historyEntryToDraft(entry));
+  else applyModesUI();
+  updateScore();
+  _markFormLoaded(entry);
+  _applyValidDraft(activeDateKey,entry);
 
   _loadingActiveDate=false;
   updateActiveDateDisplay();
   updateScore();
   refreshSwipeForModes();
-  setTimeout(saveDraft,50);
+  _renderSyncUI();
 }
 
 function selectActiveDate(value){
@@ -4517,7 +4964,8 @@ initBellDot();
 // Build configurable sections, then restore today's draft.
 applySectionConfig();
 // Restore the selected-date draft, then score & streaks.
-const _drafted = restoreDraft();
+_migrateSyncV1();
+const _drafted = _openActiveDateAtBoot();
 updateScore();
 updateStreakUI();
 initSwipeNavigation();
