@@ -75,6 +75,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .account-modal-status{font-size:11px;line-height:1.5;text-align:center;min-height:17px;margin-top:9px;color:var(--muted);}
 .account-modal-status.success{color:var(--green);}
 .account-modal-status.error{color:#ff8b8b;}
+.import-modal{max-height:88vh;overflow-y:auto;}
+.import-meta{font-size:10.5px;color:var(--muted);text-align:center;margin:6px 0 10px;}
+.import-plan{font-size:11.5px;line-height:1.55;color:var(--text);overflow-wrap:anywhere;}
+.import-list{margin:4px 0 8px 16px;padding:0;}
+.import-list li{margin-bottom:4px;}
+.import-conflict-title{font-weight:800;color:var(--amber);margin:8px 0 4px;}
+.import-conflicts{max-height:32vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:7px 10px;}
+.import-conflict{padding:3px 0;border-bottom:1px solid var(--border);}
+.import-conflict:last-child{border-bottom:0;}
+.import-warn{color:var(--amber);font-weight:800;}
+.import-actions{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.import-actions .account-btn{width:100%;padding:10px;}
 .account-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--border);margin-top:10px;}
 
 
@@ -1669,6 +1681,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <input type="file" id="import-file-input" accept=".json" onchange="importBackup(event)">
       <div class="backup-status" id="backup-status"></div>
+    </div>
+
+    <!-- ── Backup Import Modal ── -->
+    <div class="account-modal-overlay" id="import-modal-overlay">
+      <div class="account-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+        <div class="account-modal-title" id="import-modal-title">Restore backup</div>
+        <div class="import-plan" id="import-plan"></div>
+        <div class="import-actions" id="import-actions"></div>
+      </div>
     </div>
 
     <!-- ── Supabase Account Modal ── -->
@@ -3870,55 +3891,264 @@ function exportBackup(){
   }catch(e){showBackupStatus('❌ Export failed — please try again.','error');return null;}
 }
 
-// A backup file is untrusted input. Keep only well-formed day entries so a
-// corrupt or hand-edited file cannot inject junk keys into saved history.
+// A backup file is untrusted input. Nothing in it is written until it has
+// been validated, turned into a dry-run plan, and the user has chosen what to
+// do with any day that differs from this device (P0-11).
+
+// Formats this build reads: 1 (no _meta.schema), 2 (current export) and 3.
+const BACKUP_SCHEMAS=[1,2,3];
+const _isPlainObject=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
+const _isFiniteNumber=v=>typeof v==='number'&&Number.isFinite(v);
+function _backupSchema(payload){
+  const m=payload._meta;
+  if(m===undefined||m===null)return 1;
+  if(!_isPlainObject(m))return m;
+  return m.schema===undefined?1:m.schema;
+}
+// Why a backup day breaks the saved-day contract, or '' when it is valid.
+// Scores are checked, never changed: a negative legacy total stays as it is.
+function _backupDayProblem(key,day){
+  if(!_validRecordDateKey(key))return 'not a date';
+  if(!_isPlainObject(day))return 'not a saved day';
+  if(!Object.keys(day).some(k=>k!=='_sync'))return 'empty';
+  if(day.score!==undefined&&!_isFiniteNumber(day.score))return 'score is not a number';
+  if(day.maxScore!==undefined&&!_isFiniteNumber(day.maxScore))return 'max score is not a number';
+  if(day.scoringVersion!==undefined&&day.scoringVersion!==null&&day.scoringVersion!==2&&day.scoringVersion!==3)return 'unknown scoring version';
+  if(day.savedAt!==undefined&&!(typeof day.savedAt==='string'&&Number.isFinite(Date.parse(day.savedAt))))return 'saved time is not valid';
+  return '';
+}
+// Valid days, without another device's sync state (_sync), and the rest reported.
 function sanitiseBackupHistory(raw){
-  const days={};let skipped=0;
-  if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
+  const days={},invalid=[];
+  if(_isPlainObject(raw)){
     Object.keys(raw).forEach(k=>{
-      const v=raw[k];
-      if(_validRecordDateKey(k)&&v&&typeof v==='object'&&!Array.isArray(v)) days[k]=v;
-      else skipped++;
+      const why=_backupDayProblem(k,raw[k]);
+      if(why)invalid.push({key:k,why});
+      else days[k]=_stripSync(raw[k]);
     });
   }
-  return {days,skipped};
+  return {days,skipped:invalid.length,invalid};
+}
+function _backupDraftOk(key,draft){return _isPlainObject(draft)&&_validRecordDateKey(draft.date)&&(key===undefined||draft.date===key);}
+function _stripDraftBase(draft){const out={...draft};delete out.base;return out;}
+function _validSectionConfig(c){
+  if(!_isPlainObject(c)||!Array.isArray(c.order)||!_isPlainObject(c.enabled)||!Array.isArray(c.custom))return false;
+  if(!c.order.every(k=>typeof k==='string'&&k))return false;
+  if(!Object.values(c.enabled).every(v=>typeof v==='boolean'))return false;
+  return c.custom.every(sec=>_isPlainObject(sec)&&typeof sec.id==='string'&&!!sec.id&&typeof sec.name==='string'&&!!sec.name.trim()
+    &&(sec.icon===undefined||typeof sec.icon==='string')&&(sec.subtitle===undefined||typeof sec.subtitle==='string')
+    &&Array.isArray(sec.tasks)&&sec.tasks.every(t=>_isPlainObject(t)&&(typeof t.id==='string'||_isFiniteNumber(t.id))
+      &&typeof t.name==='string'&&!!t.name.trim()&&_isFiniteNumber(t.points)));
+}
+function _validDhikrList(v){return Array.isArray(v)&&v.every(x=>typeof x==='string'&&!!x.trim());}
+function _readStoreJson(key,fallback){try{const raw=_lsRead(key);return raw===null||raw===''?fallback:JSON.parse(raw);}catch(e){return undefined;}}
+function _scoringVersionOf(day){return Number.isInteger(day&&day.scoringVersion)?day.scoringVersion:null;}
+
+// Dry run: what an import would do. Reads this device's stores; writes nothing.
+function planBackupImport(payload){
+  if(!_isPlainObject(payload))return {ok:false,reason:'not-a-backup'};
+  const schema=_backupSchema(payload);
+  if(!BACKUP_SCHEMAS.includes(schema))
+    return {ok:false,reason:'unsupported-schema',schema,newer:Number.isInteger(schema)&&schema>BACKUP_SCHEMAS[BACKUP_SCHEMAS.length-1]};
+  if(!payload.spt_v2)return {ok:false,reason:'not-a-backup'};
+  const device=_readStoreJson('spt_v2',{});
+  if(!_isPlainObject(device))return {ok:false,reason:'device-unreadable'};
+
+  const {days,invalid}=sanitiseBackupHistory(payload.spt_v2);
+  if(!Object.keys(days).length)return {ok:false,reason:'no-valid-days',skipped:invalid.length,invalid};
+
+  const plan={ok:true,schema,exported:_isPlainObject(payload._meta)?payload._meta.exported:null,
+    newDays:[],identical:[],conflicts:[],invalidDays:invalid,
+    drafts:{add:[],deviceKept:[],skippedOpenDay:[],invalid:[]},stores:{},
+    write:{days:{},conflictDays:{},drafts:{},section:null,dhikr:null}};
+
+  // Same date: identical when equal in full, ignoring _sync; otherwise a conflict.
+  const same=d=>_stableJson(_stripSync(d));
+  Object.keys(days).sort().forEach(d=>{
+    const mine=device[d],theirs=days[d];
+    if(!_isPlainObject(mine)){plan.newDays.push(d);plan.write.days[d]=theirs;return;}
+    if(same(mine)===same(theirs)){plan.identical.push(d);return;}
+    const from=_scoringVersionOf(mine),to=_scoringVersionOf(theirs);
+    const tm=Date.parse(mine.savedAt),tt=Date.parse(theirs.savedAt);
+    plan.conflicts.push({date:d,from,to,downgrade:from!==null&&(to===null||to<from),olderBackup:Number.isFinite(tm)&&Number.isFinite(tt)&&tt<tm});
+    plan.write.conflictDays[d]=theirs;
+  });
+
+  // Drafts merge: this device's drafts always stay; a backup draft is only
+  // added for a date with no device draft, never as the open form's draft.
+  const deviceDrafts=_readStoreJson(DRAFTS_KEY,{}),deviceActive=_readStoreJson(DRAFT_KEY,null);
+  const candidates={};
+  const bMap=payload.spt_drafts_v1,bActive=payload.spt_draft_v2;
+  if(bMap!==undefined&&bMap!==null){
+    if(!_isPlainObject(bMap))plan.drafts.invalid.push('unsaved drafts');
+    else Object.keys(bMap).forEach(k=>{if(_backupDraftOk(k,bMap[k]))candidates[k]=bMap[k];else plan.drafts.invalid.push(k);});
+  }
+  if(bActive!==undefined&&bActive!==null){
+    if(!_backupDraftOk(undefined,bActive))plan.drafts.invalid.push('active draft');
+    else if(!candidates[bActive.date])candidates[bActive.date]=bActive;
+  }
+  if(Object.keys(candidates).length&&!_isPlainObject(deviceDrafts)){
+    plan.drafts.invalid.push('this device’s drafts are unreadable');
+  }else{
+    const hasDeviceDraft=d=>_isPlainObject(deviceDrafts[d])||(_isPlainObject(deviceActive)&&deviceActive.date===d);
+    const hasDayAfter=d=>_isPlainObject(device[d])||!!plan.write.days[d];
+    Object.keys(candidates).sort().forEach(d=>{
+      if(hasDeviceDraft(d))plan.drafts.deviceKept.push(d);
+      else if(d===activeDateKey&&!hasDayAfter(d))plan.drafts.skippedOpenDay.push(d);
+      else{plan.drafts.add.push(d);plan.write.drafts[d]=_stripDraftBase(candidates[d]);}
+    });
+  }
+
+  // Section config and dhikr list keep replace semantics, but only when valid.
+  const store=(key,valid)=>{
+    const v=payload[key];
+    if(v===undefined||v===null)return 'absent';
+    if(!valid(v))return 'invalid';
+    const mine=_readStoreJson(key,null);
+    return mine!==undefined&&_stableJson(mine)===_stableJson(v)?'same':'replace';
+  };
+  plan.stores.section=store('spt_section_config_v1',_validSectionConfig);
+  plan.stores.dhikr=store('spt_dhikr_preferences_v1',_validDhikrList);
+  if(plan.stores.section==='replace')plan.write.section=payload.spt_section_config_v1;
+  if(plan.stores.dhikr==='replace')plan.write.dhikr=payload.spt_dhikr_preferences_v1;
+  return plan;
+}
+const _planShape=p=>JSON.stringify([p.newDays,p.identical,p.conflicts.map(c=>c.date),p.drafts,p.stores]);
+
+// Writes a confirmed plan, all or nothing. useBackup replaces exactly the
+// listed conflicting dates; otherwise they keep this device's version. If
+// this device changed since the plan was shown, nothing is written.
+function applyBackupPlan(payload,plan,{useBackup=false}={}){
+  const now=planBackupImport(payload);
+  if(!now.ok)return now;
+  if(_planShape(now)!==_planShape(plan))return {ok:false,reason:'changed'};
+  plan=now;
+  const snap={};
+  BACKUP_STORES.forEach(({key})=>{snap[key]=_lsRead(key);});
+  const device=_readStoreJson('spt_v2',{});
+  const days=Object.assign({},plan.write.days,useBackup?plan.write.conflictDays:{});
+  const writes=[];
+  if(Object.keys(days).length)writes.push(['spt_v2',Object.assign({},device,days)]);
+  // A device draft for a date whose saved day this import writes would look
+  // stale and be dropped on opening; mark it so it is offered instead.
+  const offer=dr=>({...dr,base:{fp:null,legacy:true}});
+  const mapAdds=Object.keys(plan.write.drafts).length;
+  const deviceMap=_readStoreJson(DRAFTS_KEY,{})||{};
+  const remarked=Object.keys(deviceMap).filter(k=>days[k]);
+  if(mapAdds||remarked.length){
+    const m={};Object.keys(deviceMap).forEach(k=>{m[k]=days[k]?offer(deviceMap[k]):deviceMap[k];});
+    writes.push([DRAFTS_KEY,Object.assign(m,plan.write.drafts)]);
+  }
+  const active=_readStoreJson(DRAFT_KEY,null);
+  if(_isPlainObject(active)&&days[active.date])writes.push([DRAFT_KEY,offer(active)]);
+  if(plan.write.section)writes.push(['spt_section_config_v1',plan.write.section]);
+  if(plan.write.dhikr)writes.push(['spt_dhikr_preferences_v1',plan.write.dhikr]);
+
+  for(let i=0;i<writes.length;i++){
+    if(!_lsWrite(writes[i][0],JSON.stringify(writes[i][1]))){
+      const detail=storageErrorText();
+      let rolledBack=true;
+      for(let j=0;j<=i;j++){
+        const k=writes[j][0];
+        if(snap[k]===null){try{localStorage.removeItem(k);}catch(e){rolledBack=false;}}
+        else if(!_lsWrite(k,snap[k]))rolledBack=false;
+      }
+      return {ok:false,reason:'write-failed',rolledBack,detail};
+    }
+  }
+  const restored=[];
+  if(Object.keys(days).length)restored.push('saved days');
+  if(mapAdds)restored.push('unsaved drafts');
+  if(plan.write.section)restored.push('custom sections');
+  if(plan.write.dhikr)restored.push('dhikr list');
+  return {ok:true,nothing:!writes.length,dayCount:Object.keys(days).length,added:plan.newDays.length,
+    replaced:useBackup?plan.conflicts.length:0,kept:useBackup?0:plan.conflicts.length,identical:plan.identical.length,
+    skipped:plan.invalidDays.length,draftsAdded:mapAdds,restored};
 }
 
-// Applies a parsed backup. Returns a result object so this is testable without
-// a FileReader. Stores absent from the file are left untouched, which is what
-// makes older schema-1 files safe to restore.
-function applyBackupPayload(payload,{confirmFn=confirm}={}){
-  if(!payload||typeof payload!=='object'||Array.isArray(payload)||!payload.spt_v2)
-    return {ok:false,reason:'not-a-backup'};
+// Plan, decide, apply. decide(plan) returns 'keep', 'backup' or anything else to cancel.
+function applyBackupPayload(payload,{decide=()=>'cancel'}={}){
+  const plan=planBackupImport(payload);
+  if(!plan.ok)return plan;
+  const choice=decide(plan);
+  if(choice!=='keep'&&choice!=='backup')return {ok:false,reason:'cancelled'};
+  return applyBackupPlan(payload,plan,{useBackup:choice==='backup'});
+}
 
-  const {days,skipped}=sanitiseBackupHistory(payload.spt_v2);
-  const dayCount=Object.keys(days).length;
-  if(!dayCount) return {ok:false,reason:'no-valid-days',skipped};
-
-  const willReplace=BACKUP_STORES.filter(s=>s.key!=='spt_v2'&&payload[s.key]).map(s=>s.label);
-  const prompt='⚠️ Restore this backup?\n\n'
-    +'• '+dayCount+' saved day'+(dayCount===1?'':'s')+' will be merged in\n'
-    +(skipped?'• '+skipped+' unreadable entr'+(skipped===1?'y':'ies')+' will be skipped\n':'')
-    +(willReplace.length?'• '+willReplace.join(', ')+' will be replaced\n':'')
-    +'\nA day with the same date is overwritten by the backup, and unsaved work on the day you are viewing is replaced.\n\nContinue?';
-  if(!confirmFn(prompt)) return {ok:false,reason:'cancelled'};
-
-  if(!setStorage(Object.assign({},getStorage(),days)))
-    return {ok:false,reason:'write-failed',detail:storageErrorText()};
-
-  const restored=['saved days'];
-  const put=(key,label,valid)=>{
-    const v=payload[key];
-    if(v===undefined||v===null||!valid(v))return;
-    if(_lsWrite(key,JSON.stringify(v))&&label)restored.push(label);
-  };
-  const isObj=v=>typeof v==='object'&&!Array.isArray(v);
-  put('spt_draft_v2',null,isObj);
-  put('spt_drafts_v1','unsaved drafts',isObj);
-  put('spt_section_config_v1','custom sections',isObj);
-  put('spt_dhikr_preferences_v1','dhikr list',Array.isArray);
-
-  return {ok:true,dayCount,skipped,restored};
+// ── The import dialog ──
+const _plural=(n,one,many)=>n+' '+(n===1?one:(many||one+'s'));
+function _listDates(arr,limit=12){const shown=arr.slice(0,limit).map(x=>escapeHTML(x)).join(', ');return arr.length>limit?shown+' and '+(arr.length-limit)+' more':shown;}
+function _renderImportPlan(plan){
+  const v=x=>x===null?'legacy':'v'+x;
+  const li=[];
+  const when=Date.parse(plan.exported);
+  if(plan.newDays.length)li.push(_plural(plan.newDays.length,'new day')+' will be added.');
+  if(plan.identical.length)li.push(_plural(plan.identical.length,'day')+' already match this device — nothing to do.');
+  if(plan.invalidDays.length)li.push(_plural(plan.invalidDays.length,'invalid entry','invalid entries')+' will be skipped: '+plan.invalidDays.slice(0,8).map(x=>escapeHTML(x.key)+' ('+escapeHTML(x.why)+')').join(', ')+(plan.invalidDays.length>8?' and '+(plan.invalidDays.length-8)+' more':'')+'.');
+  const d=plan.drafts;
+  if(d.add.length)li.push(_plural(d.add.length,'unsaved draft')+' will be added ('+_listDates(d.add)+'). They are not opened automatically.');
+  if(d.deviceKept.length)li.push(_plural(d.deviceKept.length,'backup draft')+' skipped — this device already has a draft for '+_listDates(d.deviceKept)+'.');
+  if(d.skippedOpenDay.length)li.push('The backup draft for the day you are viewing ('+_listDates(d.skippedOpenDay)+') is skipped so your open form is not replaced.');
+  if(d.invalid.length)li.push(_plural(d.invalid.length,'invalid draft')+' skipped.');
+  const st={replace:'will be replaced',invalid:'are invalid in the backup — yours are kept',same:'already match'};
+  if(st[plan.stores.section])li.push('Custom sections '+st[plan.stores.section]+'.');
+  if(st[plan.stores.dhikr])li.push('Dhikr list '+(plan.stores.dhikr==='invalid'?'is invalid in the backup — yours is kept':plan.stores.dhikr==='same'?'already matches':'will be replaced')+'.');
+  let html=(Number.isFinite(when)?`<div class="import-meta">Backup from ${escapeHTML(new Date(when).toLocaleString([],{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}))} · format ${escapeHTML(plan.schema)}</div>`:'')
+    +(li.length?`<ul class="import-list">${li.map(x=>`<li>${x}</li>`).join('')}</ul>`:'');
+  if(plan.conflicts.length){
+    html+=`<div class="import-conflict-title">⚠️ ${_plural(plan.conflicts.length,'date')} differ between this device and the backup:</div><div class="import-conflicts">`
+      +plan.conflicts.map(c=>{
+        const w=[];
+        if(c.downgrade)w.push(`<span class="import-warn">⚠️ downgrade ${v(c.from)} → ${v(c.to)}</span>`);
+        else if(c.from!==c.to)w.push(`version change ${v(c.from)} → ${v(c.to)}`);
+        if(c.olderBackup)w.push('backup copy is older');
+        return `<div class="import-conflict">📅 ${escapeHTML(c.date)}${w.length?' — '+w.join(' · '):''}</div>`;
+      }).join('')+'</div>';
+  }
+  return html;
+}
+let _pendingImport=null;
+function _openImportModal(payload,plan){
+  _pendingImport={payload,plan};
+  const writes=plan.newDays.length||plan.conflicts.length||plan.drafts.add.length||plan.write.section||plan.write.dhikr;
+  const body=document.getElementById('import-plan'),actions=document.getElementById('import-actions');
+  if(body)body.innerHTML=_renderImportPlan(plan)||'<p>This device already has everything in the backup.</p>';
+  if(actions)actions.innerHTML=!writes
+    ?'<button class="account-modal-submit" onclick="importChoose(\'cancel\')">Close</button>'
+    :plan.conflicts.length
+      ?`<button class="account-modal-submit" onclick="importChoose('keep')">Keep this device’s versions</button>`
+        +`<button class="account-btn" onclick="importChoose('backup')">Use backup versions for ${_plural(plan.conflicts.length,'listed date')}</button>`
+        +'<button class="account-btn" onclick="importChoose(\'cancel\')">Cancel import</button>'
+      :'<button class="account-modal-submit" onclick="importChoose(\'keep\')">Restore</button><button class="account-btn" onclick="importChoose(\'cancel\')">Cancel import</button>';
+  document.getElementById('import-modal-overlay')?.classList.add('open');
+}
+function importChoose(choice){
+  const p=_pendingImport;_pendingImport=null;
+  document.getElementById('import-modal-overlay')?.classList.remove('open');
+  if(!p||(choice!=='keep'&&choice!=='backup')){showBackupStatus('Restore cancelled — nothing was changed.','');return null;}
+  const r=applyBackupPlan(p.payload,p.plan,{useBackup:choice==='backup'});
+  if(!r.ok){
+    const msg=r.reason==='changed'?'⚠️ Your data changed while the restore was open. Nothing was changed — please import the file again.'
+      :r.reason==='write-failed'?(r.rolledBack?'❌ Restore failed and was rolled back — nothing was changed. ':'❌ Restore failed and could not be fully rolled back. ')+(r.detail||'')
+      :'❌ Restore failed — nothing was changed.';
+    showBackupStatus(msg,'error');return r;
+  }
+  if(r.nothing){showBackupStatus('✅ Nothing to restore — this device already has everything in the backup.','success');return r;}
+  // Rebuild from what was just restored: config first, then the visible day.
+  loadSectionConfig();
+  applySectionConfig();
+  loadActiveDate();
+  updateStreakUI();
+  buildDiaryFeed();
+  const parts=[];
+  if(r.added)parts.push(_plural(r.added,'day')+' added');
+  if(r.replaced)parts.push(_plural(r.replaced,'day')+' replaced by the backup');
+  if(r.kept)parts.push(_plural(r.kept,'day')+' kept from this device');
+  if(r.draftsAdded)parts.push(_plural(r.draftsAdded,'draft')+' added');
+  if(r.restored.includes('custom sections'))parts.push('custom sections');
+  if(r.restored.includes('dhikr list'))parts.push('dhikr list');
+  showBackupStatus('✅ Restored — '+(parts.join(', ')||'done')+'.'+(r.skipped?' '+_plural(r.skipped,'invalid entry','invalid entries')+' skipped.':''),'success');
+  return r;
 }
 
 function importBackup(event){
@@ -3930,25 +4160,19 @@ function importBackup(event){
     let payload;
     try{ payload=JSON.parse(e.target.result); }
     catch(err){ showBackupStatus('❌ That file is not valid JSON.','error');clear();return; }
-
-    const r=applyBackupPayload(payload);
-    if(!r.ok){
-      if(r.reason==='cancelled'){clear();return;}
-      const msg=r.reason==='not-a-backup' ? '❌ That is not a Spiritual Tracker backup file.'
-        : r.reason==='no-valid-days'      ? '❌ This backup contains no readable days.'
-        : '❌ Restore failed — '+(r.detail||'please try again.');
-      showBackupStatus(msg,'error');clear();return;
-    }
-
-    // Rebuild from what was just restored: config first, then the visible day.
-    loadSectionConfig();
-    applySectionConfig();
-    loadActiveDate();
-    updateStreakUI();
-    buildDiaryFeed();
-    showBackupStatus('✅ Restored '+r.dayCount+' day'+(r.dayCount===1?'':'s')+' — '+r.restored.join(', ')+'.'
-      +(r.skipped?' '+r.skipped+' invalid entr'+(r.skipped===1?'y':'ies')+' skipped.':''),'success');
+    const plan=planBackupImport(payload);
     clear();
+    if(!plan.ok){
+      const msg=plan.reason==='unsupported-schema'
+          ?(plan.newer?'❌ This backup was made by a newer version of Spiritual Tracker (backup format '+plan.schema+'). Update the app, then restore it. Nothing was changed.'
+                      :'❌ This backup’s format is not recognised. Nothing was changed.')
+        : plan.reason==='not-a-backup' ? '❌ That is not a Spiritual Tracker backup file.'
+        : plan.reason==='no-valid-days' ? '❌ This backup contains no readable days.'
+        : plan.reason==='device-unreadable' ? '❌ This device’s saved history could not be read, so nothing was restored.'
+        : '❌ Restore failed — nothing was changed.';
+      showBackupStatus(msg,'error');return;
+    }
+    _openImportModal(payload,plan);
   };
   reader.readAsText(file);
 }
