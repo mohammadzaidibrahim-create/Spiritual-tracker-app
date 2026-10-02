@@ -204,7 +204,7 @@ test('backup export and restore keep scoringVersion', () => {
   app.saveDay();
   const backup = plain(app.buildBackupPayload());
   const fresh = loadApp();
-  assert.strictEqual(fresh.applyBackupPayload(backup, { confirmFn: () => true }).ok, true);
+  assert.strictEqual(fresh.applyBackupPayload(backup, { decide: () => 'keep' }).ok, true);
   const [day] = Object.values(savedDays(fresh));
   assert.strictEqual(day.scoringVersion, 3);
 });
