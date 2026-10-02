@@ -301,6 +301,63 @@ test('discarding a pre-6.1 draft keeps the saved day; the clean-up runs only onc
   assert.strictEqual(JSON.parse(app.__storage.getItem('spt_drafts_v1'))['2026-09-11'].base, undefined, 'second run is a no-op');
 });
 
+// The shape of a real pre-6.1 device: exact-copy drafts for saved days, plus a
+// draft for "today", which has no saved day yet, held in both draft stores.
+function preSixOneDevice(todayDraft) {
+  const local = { '2026-09-29': localDay(), '2026-09-30': localDay(), '2026-10-01': localDay() };
+  const probe = boot({ local, date: '2026-10-01' });
+  probe.loadActiveDate();
+  const copy = plain(probe._buildDraftFromForm());
+  delete copy.base;
+  const map = { '2026-09-29': { ...copy, date: '2026-09-29' }, '2026-09-30': { ...copy, date: '2026-09-30' }, '2026-10-01': copy, '2026-10-02': todayDraft };
+  return boot({ local, date: '2026-10-02', seed: { spt_drafts_v1: JSON.stringify(map), spt_draft_v2: JSON.stringify(todayDraft) } });
+}
+const withoutBase = d => { const c = { ...d }; delete c.base; return c; };
+
+test('a pre-6.1 draft for a day with no saved version is kept and restored at start-up, never offered as stale or deleted', () => {
+  const blank = boot({ date: '2026-10-02' });
+  const todayDraft = { ...plain(blank._buildDraftFromForm()), reflectionWin: 'unsaved today', musicFree: true };
+  delete todayDraft.base;
+  const app = preSixOneDevice(todayDraft);
+  app._migrateSyncV1();                                   // the real start-up order
+  const map = JSON.parse(app.__storage.getItem('spt_drafts_v1'));
+  assert.deepStrictEqual(Object.keys(map), ['2026-10-02'], 'exact copies of saved days removed; the unsaved day kept');
+  assert.deepStrictEqual(map['2026-10-02'].base, { fp: null });
+  assert.deepStrictEqual(withoutBase(map['2026-10-02']), todayDraft, 'content untouched');
+  const active = JSON.parse(app.__storage.getItem('spt_draft_v2'));
+  assert.deepStrictEqual(active.base, { fp: null });
+  assert.deepStrictEqual(withoutBase(active), todayDraft);
+
+  assert.strictEqual(app._openActiveDateAtBoot(), true);
+  assert.strictEqual(field(app, 'reflection-win').value, 'unsaved today', 'restored into the form');
+  assert.strictEqual(field(app, 'sync-day-banner').style.display, 'none', 'not offered as stale or legacy');
+  assert.strictEqual(app._formHasEdits(), true);
+  assert.ok(app._getDateDraft('2026-10-02'), 'still kept');
+
+  // Moving away and back keeps it: it is real unsaved work.
+  app.selectActiveDate('2026-10-01');
+  assert.ok(app._getDateDraft('2026-10-02'));
+  app.selectActiveDate('2026-10-02');
+  assert.strictEqual(field(app, 'reflection-win').value, 'unsaved today');
+  assert.strictEqual(field(app, 'sync-day-banner').style.display, 'none');
+});
+
+test('an empty pre-6.1 draft for a day with no saved version (autosaved on open) is kept harmlessly, then dropped once nothing differs', () => {
+  const blank = boot({ date: '2026-10-02' });
+  const emptyDraft = plain(blank._buildDraftFromForm());
+  delete emptyDraft.base;
+  const app = preSixOneDevice(emptyDraft);
+  app._migrateSyncV1();
+  assert.deepStrictEqual(Object.keys(JSON.parse(app.__storage.getItem('spt_drafts_v1'))), ['2026-10-02']);
+  assert.strictEqual(app._openActiveDateAtBoot(), true);
+  assert.strictEqual(field(app, 'sync-day-banner').style.display, 'none', 'no notice for a draft with nothing in it');
+  assert.strictEqual(app._formHasEdits(), false);
+  app.selectActiveDate('2026-10-01');                     // leaving saves the draft: nothing differs, so it goes
+  assert.strictEqual(app._getDateDraft('2026-10-02'), null);
+  assert.strictEqual(app.__storage.getItem('spt_draft_v2'), null);
+  assert.strictEqual(days(app)['2026-10-02'], undefined, 'no day is created');
+});
+
 // ── signing in: Cloud Sync OFF, one sync per session ─────────────────────────
 
 test('Cloud Sync OFF: signing in reads preferences only — nothing is pulled or uploaded (D6)', async () => {
