@@ -37,7 +37,7 @@ Values built inside the VM carry that realm's prototypes, so
 | --- | --- |
 | `storage.test.js` | C-4 — a failed write is never reported as a save; corrupt history is quarantined |
 | `escaping.test.js` | H-5 — user-supplied names cannot reach `innerHTML` as markup |
-| `backup.test.js` | H-1 — every data store is exported; imports are validated and merge safely |
+| `backup.test.js` | H-1, P0-11 — every data store is exported as schema 3 without sync state; imports are validated and merge safely |
 | `invariants.test.js` | Structural guards against reintroducing the above |
 | `sync.test.js` | Step 6.1 — only changed days upload; drafts never override a newer saved day; conflicts are held, never silently won; nothing is rescored. Runs the real sync code against an in-memory Supabase (pass one via `loadApp({ globals: { supabase } })`) |
 

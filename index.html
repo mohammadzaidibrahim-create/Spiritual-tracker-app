@@ -3860,15 +3860,42 @@ const BACKUP_STORES=[
   {key:'spt_dhikr_preferences_v1', label:'dhikr list'},
 ];
 
-// schema 2 keeps every schema-1 key at the same top level, so a file written
-// here still opens in an older build and an older file still restores here.
+// Schema 3 (P0-11) keeps the schema-1/2 layout, every key at the same top
+// level, so a file written here still opens in an older build and an older
+// file still restores here. It is a portable snapshot, not a sync payload:
+// this device's sync state (a day's _sync, a draft's base) stays behind.
+// Days are copied as stored — never rescored or upgraded. Section config and
+// the dhikr list are included only when valid. Keys are written in sorted
+// order, so the same state always gives the same file (apart from the time).
+const BACKUP_EXPORT_SCHEMA=3;
+function _sortedKeysDeep(v){
+  if(Array.isArray(v))return v.map(_sortedKeysDeep);
+  if(!v||typeof v!=='object')return v;
+  return Object.fromEntries(Object.keys(v).sort().map(k=>[k,_sortedKeysDeep(v[k])]));
+}
+function _exportDraft(draft){
+  if(!_isPlainObject(draft))return draft;
+  const out={...draft};delete out.base;delete out._sync;return out;
+}
+const _mapValues=(m,fn)=>_isPlainObject(m)?Object.fromEntries(Object.keys(m).map(k=>[k,fn(m[k])])):m;
+// The value written for one store, or undefined when it must be left out.
+function _exportStore(key,v){
+  if(key==='spt_v2')return _mapValues(v,_stripSync);
+  if(key===DRAFTS_KEY)return _mapValues(v,_exportDraft);
+  if(key===DRAFT_KEY)return _exportDraft(v);
+  if(key==='spt_section_config_v1')return _validSectionConfig(v)?v:undefined;
+  if(key==='spt_dhikr_preferences_v1')return _validDhikrList(v)?v:undefined;
+  return v;
+}
 function buildBackupPayload(){
-  const payload={_meta:{app:'Spiritual Tracker',version:'3.1.0-clean-integrated',schema:2,exported:new Date().toISOString()},_unreadable:[]};
+  const payload={_meta:{app:'Spiritual Tracker',version:'3.1.0-clean-integrated',schema:BACKUP_EXPORT_SCHEMA,exported:new Date().toISOString()},_unreadable:[]};
   BACKUP_STORES.forEach(({key})=>{
     const raw=_lsRead(key);
     if(raw===null||raw===''){payload[key]=null;return;}
-    try{ payload[key]=JSON.parse(raw); }
-    catch(e){ payload[key]=null; payload._unreadable.push(key); }
+    let v;
+    try{ v=_exportStore(key,JSON.parse(raw)); }catch(e){ v=undefined; }
+    if(v===undefined){ payload[key]=null; payload._unreadable.push(key); }
+    else payload[key]=_sortedKeysDeep(v);
   });
   return payload;
 }
@@ -3883,7 +3910,7 @@ function exportBackup(){
     a.href=url;a.download=`spiritual-tracker-backup-${new Date().toISOString().slice(0,10)}.json`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
     if(payload._unreadable.length){
-      showBackupStatus('⚠️ Backup downloaded, but '+payload._unreadable.length+' store(s) could not be read and are not in the file.','error');
+      showBackupStatus('⚠️ Backup downloaded, but '+payload._unreadable.length+' store(s) could not be read or were invalid and are not in the file.','error');
     }else{
       showBackupStatus('✅ Backup downloaded — '+dayCount+' day'+(dayCount===1?'':'s')+', plus your sections, drafts and dhikr list.','success');
     }
@@ -3895,7 +3922,7 @@ function exportBackup(){
 // been validated, turned into a dry-run plan, and the user has chosen what to
 // do with any day that differs from this device (P0-11).
 
-// Formats this build reads: 1 (no _meta.schema), 2 (current export) and 3.
+// Formats this build reads: 1 (no _meta.schema), 2 and 3 (current export).
 const BACKUP_SCHEMAS=[1,2,3];
 const _isPlainObject=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const _isFiniteNumber=v=>typeof v==='number'&&Number.isFinite(v);
