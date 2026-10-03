@@ -52,10 +52,10 @@ test('export excludes per-device UI state', () => {
   assert.ok(!('spt_bell_seen_v27' in p));
 });
 
-test('export is labelled schema 2 and keeps schema-1 keys in place', () => {
+test('export is labelled schema 3 and keeps schema-1 keys in place', () => {
   const app = loadApp({ storage: makeStorage(SEED) });
   const p = plain(app.buildBackupPayload());
-  assert.strictEqual(p._meta.schema, 2);
+  assert.strictEqual(p._meta.schema, 3);
   // An older build reads exactly these two top-level keys; both still present.
   assert.ok('spt_v2' in p && 'spt_draft_v2' in p);
 });
@@ -68,6 +68,196 @@ test('unreadable stores are reported rather than silently dropped', () => {
   const p = plain(app.buildBackupPayload());
   assert.deepStrictEqual(p._unreadable, ['spt_section_config_v1']);
   assert.strictEqual(p.spt_section_config_v1, null);
+});
+
+// ── export: schema 3 (Step 5.2) ────────────────────────────────────────────
+
+const SYNC = { v: 1, h: 'fp1:abc', at: '2026-09-30T18:00:01.000Z' };
+const HELD = { ...SYNC, held: { reason: 'both-changed', other: day({ reflection: { win: 'cloud', improve: '' } }), otherFp: 'fp1:d', otherSide: 'cloud' }, err: { kind: 'validation', code: '23514', fp: 'fp1:abc' } };
+const FULL_DAYS = {
+  '2026-09-30': day({ _sync: SYNC, habits: [{ name: 'Walk', done: true, mins: 20 }, { name: 'Read', done: false, mins: 0 }] }),
+  '2026-09-29': day({ score: 91, maxScore: 73, quran: { kahf: true }, _sync: HELD }),     // bonus above max
+  '2026-04-03': legacy({ score: -15, maxScore: 60, gaze: 'relapse', gazeScore: -25 }),    // negative legacy
+  '2026-04-02': day({ scoringVersion: 2, score: 40 }),
+  '2026-04-01': { ...legacy(), scoringVersion: null },
+};
+const FULL_DRAFTS = {
+  '2026-10-01': { date: '2026-10-01', reflectionWin: 'open form', base: { fp: null } },
+  '2026-09-30': { date: '2026-09-30', reflectionWin: 'edit', base: { fp: 'fp1:abc' } },
+  '2026-09-28': { date: '2026-09-28', gazeVal: 'success', base: { fp: null, legacy: true } },
+};
+const FULL = {
+  ...SEED,
+  spt_v2: JSON.stringify(FULL_DAYS),
+  spt_draft_v2: JSON.stringify(FULL_DRAFTS['2026-10-01']),
+  spt_drafts_v1: JSON.stringify(FULL_DRAFTS),
+  // Stage 6.1 bookkeeping: this device's sync state, never part of a backup.
+  spt_prefs_sync_v1: JSON.stringify({ h: 'pf1:x', at: '2026-09-30T18:00:00Z' }),
+  spt_sync_migrated_v1: '2026-10-02T00:00:00.000Z',
+};
+const noSync = d => { const o = { ...d }; delete o._sync; return o; };
+const noBase = d => { const o = { ...d }; delete o.base; return o; };
+const asFile = p => JSON.parse(JSON.stringify(p));   // what a download then upload gives
+
+test('v3 export copies every day exactly as stored, minus _sync — never rescored or upgraded', () => {
+  const p = plain(loadApp({ storage: makeStorage(FULL) }).buildBackupPayload());
+  assert.deepStrictEqual(Object.keys(p.spt_v2), Object.keys(FULL_DAYS).sort());
+  for (const [d, rec] of Object.entries(FULL_DAYS)) {
+    assert.deepStrictEqual(p.spt_v2[d], noSync(rec), d);
+    assert.ok(!('_sync' in p.spt_v2[d]), d);
+  }
+  assert.ok(!('scoringVersion' in p.spt_v2['2026-04-03']), 'a legacy day stays legacy');
+  assert.strictEqual(p.spt_v2['2026-04-03'].score, -15, 'a negative legacy total is kept');
+  assert.strictEqual(p.spt_v2['2026-04-01'].scoringVersion, null);
+  assert.strictEqual(p.spt_v2['2026-04-02'].scoringVersion, 2);
+  assert.strictEqual(p.spt_v2['2026-09-29'].scoringVersion, 3);
+  assert.strictEqual(p.spt_v2['2026-09-29'].score, 91, 'a bonus day above its max is kept');
+  assert.deepStrictEqual(p.spt_v2['2026-09-30'].habits, FULL_DAYS['2026-09-30'].habits, 'full habit detail');
+});
+
+test('v3 export leaves this device’s sync state behind: no _sync, no draft base, no sync bookkeeping', () => {
+  const p = plain(loadApp({ storage: makeStorage(FULL) }).buildBackupPayload());
+  for (const [d, dr] of Object.entries(FULL_DRAFTS)) assert.deepStrictEqual(p.spt_drafts_v1[d], noBase(dr), d);
+  assert.deepStrictEqual(p.spt_draft_v2, noBase(FULL_DRAFTS['2026-10-01']));
+  assert.ok(!('spt_prefs_sync_v1' in p) && !('spt_sync_migrated_v1' in p));
+  const text = JSON.stringify(p);
+  assert.doesNotMatch(text, /"_sync"/);
+  assert.doesNotMatch(text, /"base"/);
+  assert.doesNotMatch(text, /fp1:abc|pf1:x/, 'no fingerprint survives anywhere');
+});
+
+test('exporting is read-only: no store is written or changed', () => {
+  const s = makeStorage(FULL);
+  const app = loadApp({ storage: s });
+  const before = JSON.stringify(s._dump()), writes = s.writes;
+  app.buildBackupPayload();
+  app.exportBackup();
+  assert.strictEqual(s.writes, writes);
+  assert.strictEqual(JSON.stringify(s._dump()), before);
+});
+
+test('an invalid section config or dhikr list is left out of the export and reported', () => {
+  const app = loadApp({ storage: makeStorage({
+    spt_v2: JSON.stringify({ '2026-04-01': day() }),
+    spt_section_config_v1: JSON.stringify({ order: 'broken', enabled: {}, custom: [] }),
+    spt_dhikr_preferences_v1: JSON.stringify(['Istighfar', 3]),
+  })});
+  const p = plain(app.exportBackup());
+  assert.strictEqual(p.spt_section_config_v1, null);
+  assert.strictEqual(p.spt_dhikr_preferences_v1, null);
+  assert.deepStrictEqual(p._unreadable, ['spt_section_config_v1', 'spt_dhikr_preferences_v1']);
+  assert.match(app.__document.getElementById('backup-status').textContent, /2 store\(s\) could not be read or were invalid/);
+});
+
+test('an invalid day is exported as stored and left to the importer to report', () => {
+  const bad = { score: 'abc', maxScore: 60 };
+  const p = plain(loadApp({ storage: makeStorage({ spt_v2: JSON.stringify({ '2026-04-01': day(), '2026-04-02': bad }) }) }).buildBackupPayload());
+  assert.deepStrictEqual(p.spt_v2['2026-04-02'], bad, 'not dropped, not repaired');
+  const plan = plain(loadApp().planBackupImport(asFile(p)));
+  assert.deepStrictEqual(plan.invalidDays, [{ key: '2026-04-02', why: 'score is not a number' }]);
+  assert.deepStrictEqual(plan.newDays, ['2026-04-01']);
+});
+
+test('v3 export is deterministic: the same state in a different key order gives the same file', () => {
+  const reverse = o => Object.fromEntries(Object.entries(o).reverse().map(([k, v]) => [k, v && typeof v === 'object' && !Array.isArray(v) ? reverse(v) : v]));
+  const a = makeStorage(FULL), b = makeStorage({ ...FULL,
+    spt_v2: JSON.stringify(reverse(FULL_DAYS)), spt_drafts_v1: JSON.stringify(reverse(FULL_DRAFTS)),
+    spt_section_config_v1: JSON.stringify(reverse(JSON.parse(SEED.spt_section_config_v1))) });
+  const text = s => { const p = plain(loadApp({ storage: s }).buildBackupPayload()); delete p._meta.exported; return JSON.stringify(p, null, 2); };
+  assert.notStrictEqual(a.getItem('spt_v2'), b.getItem('spt_v2'));
+  assert.strictEqual(text(a), text(b));
+  assert.strictEqual(text(a), text(a), 'and exporting twice gives the same file');
+});
+
+test('a v3 export dry-runs and restores onto a clean device, round-tripping every store', () => {
+  const file = asFile(plain(loadApp({ storage: makeStorage(FULL) }).buildBackupPayload()));
+  const t = loadApp();
+  const plan = plain(t.planBackupImport(file));
+  assert.strictEqual(plan.ok, true);
+  assert.strictEqual(plan.schema, 3);
+  assert.deepStrictEqual(plan.newDays, Object.keys(FULL_DAYS).sort());
+  assert.deepStrictEqual([plan.conflicts, plan.identical, plan.invalidDays], [[], [], []]);
+  assert.deepStrictEqual(plan.drafts.add, Object.keys(FULL_DRAFTS).sort());
+  assert.deepStrictEqual(plan.stores, { section: 'replace', dhikr: 'replace' });
+
+  const r = plain(t.applyBackupPayload(file, KEEP));
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.added, 5);
+  const h = days(t);
+  for (const [d, rec] of Object.entries(FULL_DAYS)) assert.deepStrictEqual(h[d], noSync(rec), d);
+  const after = t.__storage._dump();
+  const drafts = JSON.parse(after.spt_drafts_v1);
+  for (const [d, dr] of Object.entries(FULL_DRAFTS)) assert.deepStrictEqual(drafts[d], noBase(dr), d);
+  assert.strictEqual(after.spt_draft_v2, undefined, 'an imported draft never becomes the open form');
+  assert.deepStrictEqual(JSON.parse(after.spt_section_config_v1), JSON.parse(SEED.spt_section_config_v1));
+  assert.deepStrictEqual(JSON.parse(after.spt_dhikr_preferences_v1), JSON.parse(SEED.spt_dhikr_preferences_v1));
+});
+
+test('a v3 export imported back onto the same device changes nothing: every day identical', () => {
+  const s = makeStorage(FULL);
+  const t = loadApp({ storage: s });
+  const file = asFile(plain(t.buildBackupPayload()));
+  const before = JSON.stringify(s._dump()), writes = s.writes;
+  let seen;
+  const r = plain(t.applyBackupPayload(file, { decide: p => { seen = plain(p); return 'keep'; } }));
+  assert.strictEqual(seen.identical.length, 5, 'identical ignoring _sync');
+  assert.deepStrictEqual([seen.newDays, seen.conflicts, seen.drafts.add], [[], [], []]);
+  assert.deepStrictEqual(seen.stores, { section: 'same', dhikr: 'same' });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.nothing, true);
+  assert.strictEqual(s.writes, writes);
+  assert.strictEqual(JSON.stringify(s._dump()), before);
+});
+
+test('a v3 export goes through the Step 5.1 conflict choice: downgrade flagged, cancel, keep and use-backup', () => {
+  const file = asFile(plain(loadApp({ storage: makeStorage(FULL) }).buildBackupPayload()));
+  const device = { '2026-04-03': day({ score: 30, savedAt: '2026-10-02T08:00:00.000Z' }), '2026-09-30': day({ reflection: { win: 'newer', improve: '' }, savedAt: '2026-10-02T09:00:00.000Z' }) };
+  const seed = { spt_v2: JSON.stringify(device) };
+
+  const plan = plain(loadApp({ storage: makeStorage(seed) }).planBackupImport(file));
+  assert.deepStrictEqual(plan.conflicts.map(c => c.date), ['2026-04-03', '2026-09-30']);
+  const c = plan.conflicts.find(x => x.date === '2026-04-03');
+  assert.deepStrictEqual([c.from, c.to, c.downgrade], [3, null, true]);
+
+  const cancel = loadApp({ storage: makeStorage(seed) }), w = cancel.__storage.writes;
+  assert.strictEqual(plain(cancel.applyBackupPayload(file, { decide: () => 'cancel' })).reason, 'cancelled');
+  assert.strictEqual(cancel.__storage.writes, w);
+
+  const keep = loadApp({ storage: makeStorage(seed) });
+  assert.strictEqual(plain(keep.applyBackupPayload(file, KEEP)).kept, 2);
+  assert.deepStrictEqual(days(keep)['2026-04-03'], device['2026-04-03']);
+  assert.deepStrictEqual(days(keep)['2026-09-30'], device['2026-09-30']);
+
+  const use = loadApp({ storage: makeStorage(seed) });
+  assert.strictEqual(plain(use.applyBackupPayload(file, BACKUP)).replaced, 2);
+  assert.deepStrictEqual(days(use)['2026-04-03'], noSync(FULL_DAYS['2026-04-03']), 'replaced only by explicit choice, as stored');
+  assert.deepStrictEqual(days(use)['2026-09-30'], noSync(FULL_DAYS['2026-09-30']));
+});
+
+test('a v3 export restore that fails part-way rolls back every store', () => {
+  const file = asFile(plain(loadApp({ storage: makeStorage(FULL) }).buildBackupPayload()));
+  for (const failing of STORES.filter(k => k !== 'spt_draft_v2')) {
+    const s = makeStorage({ spt_v2: JSON.stringify({ '2026-04-03': day() }), spt_dhikr_preferences_v1: JSON.stringify(['Mine']) });
+    const t = loadApp({ storage: s });
+    const before = snapshot(t);
+    const set = s.setItem;
+    s.setItem = (k, v) => { if (k === failing && !s.__failed) { s.__failed = true; throw Object.assign(new Error('quota'), { name: 'QuotaExceededError' }); } return set.call(s, k, v); };
+    const r = plain(t.applyBackupPayload(file, BACKUP));
+    assert.deepStrictEqual([r.ok, r.reason, r.rolledBack], [false, 'write-failed', true], failing);
+    assert.deepStrictEqual(snapshot(t), before, 'every store restored after failing at ' + failing);
+  }
+});
+
+test('Export Backup downloads valid schema-3 JSON and reports the day count', () => {
+  const parts = [];
+  const app = loadApp({ storage: makeStorage(FULL), globals: { Blob: class { constructor(p, o) { parts.push(...p); this.type = o && o.type; } } } });
+  app.exportBackup();
+  const file = JSON.parse(parts.join(''));
+  assert.strictEqual(file._meta.schema, 3);
+  assert.strictEqual(Object.keys(file.spt_v2).length, 5);
+  assert.deepStrictEqual(file._unreadable, []);
+  assert.match(app.__document.getElementById('backup-status').textContent, /Backup downloaded — 5 days/);
+  assert.strictEqual(plain(loadApp().planBackupImport(file)).ok, true);
 });
 
 // ── schema ─────────────────────────────────────────────────────────────────
